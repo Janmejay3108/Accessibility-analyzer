@@ -4,8 +4,19 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// Initialize Firebase Admin SDK
+const { initializeFirebase } = require('./config/firebase-admin');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Initialize Firebase on startup
+try {
+  initializeFirebase();
+} catch (error) {
+  console.error('Failed to initialize Firebase:', error);
+  process.exit(1);
+}
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -34,11 +45,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes will be added here
-// app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/scans', require('./routes/scans'));
-// app.use('/api/reports', require('./routes/reports'));
-// app.use('/api/users', require('./routes/users'));
+// API routes
+app.use('/api', require('./routes/index'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

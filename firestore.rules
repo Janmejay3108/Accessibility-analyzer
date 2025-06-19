@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - users can only read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Analysis Requests collection
+    match /analysisRequests/{requestId} {
+      // Allow anyone to create analysis requests (for anonymous users)
+      allow create: if true;
+      
+      // Allow reading if:
+      // - The request is public (no userId) OR
+      // - The user owns the request OR
+      // - The request is completed (for public viewing)
+      allow read: if resource.data.userId == null 
+                  || (request.auth != null && request.auth.uid == resource.data.userId)
+                  || resource.data.status == 'completed';
+      
+      // Allow updating only if user owns the request
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // Allow deleting only if user owns the request
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Analysis Results collection
+    match /analysisResults/{resultId} {
+      // Only allow creating results through backend (server-side)
+      allow create: if false;
+      
+      // Allow reading if:
+      // - The result is public (no userId) OR
+      // - The user owns the result OR
+      // - The result is for a completed analysis (public viewing)
+      allow read: if resource.data.userId == null 
+                  || (request.auth != null && request.auth.uid == resource.data.userId)
+                  || exists(/databases/$(database)/documents/analysisRequests/$(resource.data.analysisRequestId)) 
+                     && get(/databases/$(database)/documents/analysisRequests/$(resource.data.analysisRequestId)).data.status == 'completed';
+      
+      // Only allow updating through backend
+      allow update: if false;
+      
+      // Allow deleting only if user owns the result
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    function isValidAnalysisRequest() {
+      return request.resource.data.keys().hasAll(['url', 'status', 'requestTimestamp']) &&
+             request.resource.data.url is string &&
+             request.resource.data.url.size() > 0 &&
+             request.resource.data.status in ['pending', 'processing', 'completed', 'failed'];
+    }
+    
+    // Additional collections for future use
+    
+    // User preferences/settings
+    match /userPreferences/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // API keys for authenticated users
+    match /apiKeys/{keyId} {
+      allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Analytics data (read-only for users, write-only for backend)
+    match /analytics/{analyticsId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only backend can write analytics
+    }
+    
+    // Public statistics (read-only for everyone)
+    match /publicStats/{statId} {
+      allow read: if true;
+      allow write: if false; // Only backend can write stats
+    }
+  }
+}

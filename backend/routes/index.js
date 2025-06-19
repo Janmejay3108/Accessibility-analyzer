@@ -2,16 +2,12 @@ const express = require('express');
 const router = express.Router();
 
 // Import route modules
-// const authRoutes = require('./auth');
-// const scanRoutes = require('./scans');
-// const reportRoutes = require('./reports');
-// const userRoutes = require('./users');
+const authRoutes = require('./auth');
+const analysisRoutes = require('./analysis');
 
 // Mount routes
-// router.use('/auth', authRoutes);
-// router.use('/scans', scanRoutes);
-// router.use('/reports', reportRoutes);
-// router.use('/users', userRoutes);
+router.use('/auth', authRoutes);
+router.use('/analysis', analysisRoutes);
 
 // Default API info route
 router.get('/', (req, res) => {
@@ -20,9 +16,7 @@ router.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
-      scans: '/api/scans',
-      reports: '/api/reports',
-      users: '/api/users'
+      analysis: '/api/analysis'
     },
     documentation: '/api/docs'
   });
