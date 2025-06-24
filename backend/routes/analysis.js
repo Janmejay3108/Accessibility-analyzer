@@ -6,6 +6,7 @@ const {
   getAnalysisRequest,
   getAnalysisResult,
   getUserAnalysisRequests,
+  getUserAnalysisResults,
   getAnalysisByUrl,
   getRecentAnalyses,
   getAnalytics,
@@ -33,14 +34,17 @@ router.post('/:id/scan', optionalAuth, triggerScan);
 // Get user's analysis requests (requires authentication)
 router.get('/user/requests', verifyFirebaseToken, getUserAnalysisRequests);
 
+// Get user's analysis results (requires authentication) - for dashboard consistency
+router.get('/user/results', verifyFirebaseToken, getUserAnalysisResults);
+
 // Get analysis requests by URL (for longitudinal tracking)
 router.get('/url/history', getAnalysisByUrl);
 
 // Get recent public analyses
 router.get('/public/recent', getRecentAnalyses);
 
-// Get analytics data
-router.get('/dashboard/analytics', optionalAuth, getAnalytics);
+// Get analytics data (requires authentication for user-specific data)
+router.get('/dashboard/analytics', verifyFirebaseToken, getAnalytics);
 
 // Get historical comparison for a URL
 router.get('/history/comparison', getHistoricalComparison);

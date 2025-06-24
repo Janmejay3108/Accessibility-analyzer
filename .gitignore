@@ -165,3 +165,10 @@ Dockerfile.dev
 # Backup files
 *.backup
 *.bak
+
+# Ignore firebase service account key
+backend/config/firebase-service-account-key.json
+
+
+
+.vercel

@@ -112,7 +112,7 @@ class ScanningService {
    */
   buildScannerOptions(settings = {}) {
     return {
-      timeout: settings.timeout || 30000,
+      timeout: settings.timeout || 60000, // Increased to 60 seconds
       viewport: settings.viewport || { width: 1280, height: 720 },
       waitForSelector: settings.waitForSelector || 'body',
       userAgent: settings.userAgent || undefined

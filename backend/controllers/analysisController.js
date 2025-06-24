@@ -184,6 +184,52 @@ const getUserAnalysisRequests = async (req, res) => {
   }
 };
 
+// Get user's analysis results (for dashboard consistency)
+const getUserAnalysisResults = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
+    // Validate pagination
+    const paginationValidation = validatePagination(req.query);
+    if (!paginationValidation.isValid) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Pagination validation failed',
+        details: paginationValidation.errors
+      });
+    }
+
+    const { limit, offset } = paginationValidation.pagination;
+
+    const analysisResults = await AnalysisResult.getByUserId(
+      req.user.uid,
+      limit,
+      offset
+    );
+
+    res.json({
+      message: 'User analysis results retrieved successfully',
+      data: analysisResults,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        count: analysisResults.length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting user analysis results:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve user analysis results'
+    });
+  }
+};
+
 // Get analysis requests by URL (for longitudinal tracking)
 const getAnalysisByUrl = async (req, res) => {
   try {
@@ -234,9 +280,17 @@ const getRecentAnalyses = async (req, res) => {
   }
 };
 
-// Get analytics data
+// Get analytics data (user-specific only)
 const getAnalytics = async (req, res) => {
   try {
+    // Require authentication for dashboard analytics
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required to view analytics'
+      });
+    }
+
     const { dateRange } = req.query;
     let parsedDateRange = null;
 
@@ -257,8 +311,9 @@ const getAnalytics = async (req, res) => {
       }
     }
 
+    // Always pass the authenticated user's ID - never null
     const analytics = await AnalysisResult.getAnalytics(
-      req.user?.uid || null,
+      req.user.uid,
       parsedDateRange
     );
 
@@ -597,6 +652,7 @@ module.exports = {
   getAnalysisRequest,
   getAnalysisResult,
   getUserAnalysisRequests,
+  getUserAnalysisResults,
   getAnalysisByUrl,
   getRecentAnalyses,
   getAnalytics,

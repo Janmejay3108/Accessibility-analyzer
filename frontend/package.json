@@ -23,6 +23,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:watch": "react-scripts test --watchAll=false",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:ci": "react-scripts test --coverage --watchAll=false --ci",
+    "test:integration": "react-scripts test --testPathPattern=integration",
+    "test:unit": "react-scripts test --testPathPattern=__tests__ --testPathIgnorePatterns=integration",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

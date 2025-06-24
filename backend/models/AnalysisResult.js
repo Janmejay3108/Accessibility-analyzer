@@ -212,7 +212,8 @@ class AnalysisResult {
           averageScanTime: 0,
           totalViolationsFound: 0,
           mostProblematicUrls: []
-        }
+        },
+        recentAnalyses: []
       };
 
       if (results.length > 0) {
@@ -273,6 +274,22 @@ class AnalysisResult {
         if (results.length >= 2) {
           analytics.trendsOverTime = this.calculateTrendsOverTime(results);
         }
+
+        // Add recent analyses (sorted by creation date, most recent first)
+        analytics.recentAnalyses = results
+          .sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+            return dateB - dateA; // Most recent first
+          })
+          .slice(0, 10) // Limit to 10 most recent
+          .map(result => ({
+            id: result.id,
+            url: result.url,
+            createdAt: result.createdAt,
+            summary: result.summary,
+            analysisRequestId: result.analysisRequestId
+          }));
       }
 
       return analytics;
