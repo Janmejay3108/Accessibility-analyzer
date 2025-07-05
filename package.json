@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "build": "npm run install:deps && cd frontend && npm run build",
-    "install:deps": "cd frontend && npm install && cd ../backend && npm install",
-    "postinstall": "npm run install:deps",
+    "build": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && npm install",
     "setup:firebase": "node backend/utils/firebase-setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,22 +20,14 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.4",
-    "@heroicons/react": "^2.2.0",
     "axe-core": "^4.10.3",
-    "axios": "^1.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
-    "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
     "helmet": "^8.1.0",
     "morgan": "^1.10.0",
-    "playwright": "^1.53.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.2",
-    "react-scripts": "5.0.1"
+    "playwright": "^1.53.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
