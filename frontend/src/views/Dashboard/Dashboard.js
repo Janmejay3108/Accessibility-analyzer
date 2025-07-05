@@ -8,8 +8,10 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline';
 import { analysisService } from '../../services/api/analysisService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { isAuthenticated } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [recentAnalyses, setRecentAnalyses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,27 +19,57 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [isAuthenticated]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Load analytics data
-      const analyticsResponse = await analysisService.getDashboardAnalytics();
-      setAnalytics(analyticsResponse.data);
+      setError('');
 
-      // Load user's recent analyses (using results for consistency with analytics)
-      // Temporarily use analytics data to extract recent analyses until index is ready
-      if (analyticsData && analyticsData.recentAnalyses) {
-        setRecentAnalyses(analyticsData.recentAnalyses.slice(0, 5));
+      if (isAuthenticated) {
+        // Load analytics data for authenticated users
+        const analyticsResponse = await analysisService.getDashboardAnalytics();
+        setAnalytics(analyticsResponse.data);
+
+        // Load user's recent analyses (using results for consistency with analytics)
+        if (analyticsResponse.data && analyticsResponse.data.recentAnalyses) {
+          setRecentAnalyses(analyticsResponse.data.recentAnalyses.slice(0, 5));
+        } else {
+          setRecentAnalyses([]);
+        }
       } else {
-        setRecentAnalyses([]);
+        // For unauthenticated users, show public recent analyses
+        try {
+          const publicAnalysesResponse = await analysisService.getRecentPublicAnalyses(5);
+          setRecentAnalyses(publicAnalysesResponse.data || []);
+
+          // Set basic analytics for unauthenticated users
+          setAnalytics({
+            totalAnalyses: 0,
+            averageComplianceScore: 0,
+            issueDistribution: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+            recentAnalyses: publicAnalysesResponse.data || []
+          });
+        } catch (publicErr) {
+          console.error('Error loading public analyses:', publicErr);
+          // Set empty state if public analyses also fail
+          setRecentAnalyses([]);
+          setAnalytics({
+            totalAnalyses: 0,
+            averageComplianceScore: 0,
+            issueDistribution: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+            recentAnalyses: []
+          });
+        }
       }
-      
+
     } catch (err) {
       console.error('Error loading dashboard data:', err);
-      setError('Failed to load dashboard data. Please try again.');
+      if (err.response?.status === 401) {
+        setError('Please sign in to view your personal analytics.');
+      } else {
+        setError('Failed to load dashboard data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -79,10 +111,14 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Overview of accessibility analysis activity</p>
+          <p className="text-gray-600">
+            {isAuthenticated
+              ? "Overview of your accessibility analysis activity"
+              : "Overview of recent accessibility analysis activity"}
+          </p>
         </div>
         <Link
-          to="/analysis"
+          to="/"
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           New Analysis
@@ -95,6 +131,21 @@ const Dashboard = () => {
             <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
             <div className="ml-3">
               <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isAuthenticated && !error && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex">
+            <CheckCircleIcon className="h-5 w-5 text-blue-400" />
+            <div className="ml-3">
+              <p className="text-sm text-blue-800">
+                <Link to="/login" className="font-medium underline hover:text-blue-900">
+                  Sign in
+                </Link> to view your personal analytics and track your accessibility analysis history.
+              </p>
             </div>
           </div>
         </div>

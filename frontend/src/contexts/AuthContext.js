@@ -132,7 +132,7 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updateProfile,
     isAuthenticated: !!user,
-    displayName: user?.displayName || user?.email || 'User'
+    displayName: user?.displayName || 'User'
   };
 
   return (

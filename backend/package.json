@@ -1,0 +1,24 @@
+{
+  "name": "accessibility-analyzer-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Accessibility Analyzer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "firebase-admin": "^13.4.0",
+    "axe-core": "^4.10.3",
+    "playwright": "^1.53.1",
+    "axios": "^1.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

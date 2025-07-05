@@ -132,6 +132,35 @@ const Analysis = () => {
     }
   };
 
+  // If no ID is provided, show error message
+  if (!id) {
+    return (
+      <div className="max-w-2xl mx-auto text-center">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8">
+          <ExclamationTriangleIcon className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-yellow-900 mb-4">No Analysis Selected</h2>
+          <p className="text-yellow-800 mb-6">
+            Please select an analysis from your history or start a new one.
+          </p>
+          <div className="space-x-4">
+            <button
+              onClick={() => navigate('/analysis')}
+              className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              View Analysis History
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Start New Analysis
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <Loading

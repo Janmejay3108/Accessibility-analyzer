@@ -124,7 +124,7 @@ export const authService = {
   // Get user display name
   getUserDisplayName: () => {
     const user = auth.currentUser;
-    return user?.displayName || user?.email || 'User';
+    return user?.displayName || 'User';
   },
 
   // Check if user is authenticated
