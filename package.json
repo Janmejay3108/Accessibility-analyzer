@@ -1,6 +1,6 @@
 {
   "name": "accessibility-analyzer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A comprehensive web application for analyzing and improving website accessibility compliance with WCAG guidelines.",
   "main": "backend/server.js",
   "scripts": {
