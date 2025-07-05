@@ -39,7 +39,7 @@ echo ""
 
 # Test 1: Health Check
 print_test "1. Health Check Endpoint"
-if curl -s -f "$BASE_URL:5000/health" > /dev/null; then
+if curl -s -f "$BASE_URL:3000/health" > /dev/null; then
     print_pass "Health endpoint responding"
 else
     print_fail "Health endpoint not responding"
@@ -48,7 +48,7 @@ fi
 
 # Test 2: API Health
 print_test "2. API Health Check"
-if curl -s -f "$BASE_URL:5000/api/health" > /dev/null; then
+if curl -s -f "$BASE_URL:3000/api/health" > /dev/null; then
     print_pass "API health endpoint responding"
 else
     print_fail "API health endpoint not responding"
@@ -83,7 +83,7 @@ fi
 print_test "6. Firebase Connection"
 if [ -n "$FIREBASE_PROJECT_ID" ] && [ "$FIREBASE_PROJECT_ID" != "your-project-id" ]; then
     # Test Firebase by making an API call that uses Firebase
-    if curl -s -f "$BASE_URL:5000/api/analysis" -X POST -H "Content-Type: application/json" -d '{"url":"https://example.com"}' > /dev/null; then
+    if curl -s -f "$BASE_URL:3000/api/analysis" -X POST -H "Content-Type: application/json" -d '{"url":"https://example.com"}' > /dev/null; then
         print_pass "Firebase connection working"
     else
         print_fail "Firebase connection issues"
@@ -118,8 +118,8 @@ echo "=============================================="
 print_info "Verification completed!"
 echo ""
 print_info "🌐 Your app is accessible at: $BASE_URL"
-print_info "🔧 API endpoint: $BASE_URL:5000/api"
-print_info "❤️ Health check: $BASE_URL:5000/health"
+print_info "🔧 API endpoint: $BASE_URL:3000/api"
+print_info "❤️ Health check: $BASE_URL:3000/health"
 echo ""
 print_info "📝 To test accessibility analysis:"
 echo "   1. Visit: $BASE_URL"

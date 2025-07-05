@@ -9,7 +9,7 @@ require('dotenv').config();
 const { initializeFirebase } = require('./config/firebase-admin');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // Initialize Firebase on startup
 try {
