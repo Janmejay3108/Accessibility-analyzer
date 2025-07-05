@@ -1,10 +1,16 @@
 [phases.setup]
 nixPkgs = ['nodejs-18_x']
 
+[phases.install]
+cmds = [
+  'npm install',
+  'cd frontend && npm install',
+  'cd ../backend && npm install'
+]
+
 [phases.build]
 cmds = [
-  'chmod +x build.sh',
-  './build.sh'
+  'cd frontend && CI=false npm run build'
 ]
 
 [start]
