@@ -6,9 +6,10 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "build": "cd frontend && npm run build",
-    "install:frontend": "cd frontend && npm install",
-    "install:backend": "cd backend && npm install",
+    "build": "cd frontend && CI=false GENERATE_SOURCEMAP=false npm run build",
+    "build:railway": "npm run install:frontend && npm run install:backend && npm run build",
+    "install:frontend": "cd frontend && npm install --no-audit --no-fund",
+    "install:backend": "cd backend && npm install --no-audit --no-fund",
     "setup:firebase": "node backend/utils/firebase-setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
