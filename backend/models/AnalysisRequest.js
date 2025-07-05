@@ -1,5 +1,8 @@
 const { getFirestore } = require('../config/firebase-admin');
 
+// Temporary in-memory storage for development
+const inMemoryStorage = new Map();
+
 class AnalysisRequest {
   constructor(data) {
     this.url = data.url;
@@ -18,20 +21,43 @@ class AnalysisRequest {
   // Create a new analysis request
   static async create(data) {
     try {
-      const db = getFirestore();
-      const analysisRequest = new AnalysisRequest(data);
-      
-      const docRef = await db.collection('analysisRequests').add({
-        ...analysisRequest,
-        requestTimestamp: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+      // Try Firebase first, fallback to in-memory storage
+      try {
+        const db = getFirestore();
+        const analysisRequest = new AnalysisRequest(data);
 
-      return {
-        id: docRef.id,
-        ...analysisRequest
-      };
+        const docRef = await db.collection('analysisRequests').add({
+          ...analysisRequest,
+          requestTimestamp: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        console.log(`✅ Analysis request created with ID: ${docRef.id}`);
+        return {
+          id: docRef.id,
+          ...analysisRequest
+        };
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable, using in-memory storage:', firebaseError.message);
+
+        // Fallback to in-memory storage
+        const analysisRequest = new AnalysisRequest(data);
+        const id = `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const requestData = {
+          id,
+          ...analysisRequest,
+          requestTimestamp: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        inMemoryStorage.set(id, requestData);
+        console.log(`✅ Analysis request created in memory with ID: ${id}`);
+
+        return requestData;
+      }
     } catch (error) {
       console.error('Error creating analysis request:', error);
       throw error;
@@ -41,17 +67,28 @@ class AnalysisRequest {
   // Get analysis request by ID
   static async getById(id) {
     try {
-      const db = getFirestore();
-      const doc = await db.collection('analysisRequests').doc(id).get();
-      
-      if (!doc.exists) {
-        return null;
+      // Check in-memory storage first for memory-based IDs
+      if (id.startsWith('mem_') && inMemoryStorage.has(id)) {
+        return inMemoryStorage.get(id);
       }
 
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
+      // Try Firebase
+      try {
+        const db = getFirestore();
+        const doc = await db.collection('analysisRequests').doc(id).get();
+
+        if (!doc.exists) {
+          return null;
+        }
+
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable for getById, checking in-memory storage');
+        return inMemoryStorage.get(id) || null;
+      }
     } catch (error) {
       console.error('Error getting analysis request:', error);
       throw error;
@@ -61,15 +98,35 @@ class AnalysisRequest {
   // Update analysis request
   static async update(id, data) {
     try {
-      const db = getFirestore();
       const updateData = {
         ...data,
         updatedAt: new Date()
       };
 
-      await db.collection('analysisRequests').doc(id).update(updateData);
-      
-      return await this.getById(id);
+      // Check if it's an in-memory record
+      if (id.startsWith('mem_') && inMemoryStorage.has(id)) {
+        const existing = inMemoryStorage.get(id);
+        const updated = { ...existing, ...updateData };
+        inMemoryStorage.set(id, updated);
+        console.log(`✅ Analysis request updated in memory: ${id}`);
+        return updated;
+      }
+
+      // Try Firebase
+      try {
+        const db = getFirestore();
+        await db.collection('analysisRequests').doc(id).update(updateData);
+        return await this.getById(id);
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable for update, checking in-memory storage');
+        if (inMemoryStorage.has(id)) {
+          const existing = inMemoryStorage.get(id);
+          const updated = { ...existing, ...updateData };
+          inMemoryStorage.set(id, updated);
+          return updated;
+        }
+        throw firebaseError;
+      }
     } catch (error) {
       console.error('Error updating analysis request:', error);
       throw error;

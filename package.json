@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
+    "build": "cd frontend && npm install && npm run build",
+    "build:all": "npm install && cd frontend && npm install && npm run build && cd .. && cd backend && npm install",
     "setup:firebase": "node backend/utils/firebase-setup.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
