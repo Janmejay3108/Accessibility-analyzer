@@ -109,9 +109,11 @@ public
 .yarn/install-state.gz
 .pnp.*
 
-# Build artifacts
-build/
+# Build artifacts (exclude frontend build for Railway)
+# build/
 dist/
+# Keep frontend build for Railway deployment
+!frontend/build/
 *.tgz
 *.tar.gz
 
