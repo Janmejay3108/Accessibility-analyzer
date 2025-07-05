@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "build": "cd frontend && CI=false GENERATE_SOURCEMAP=false npm run build",
+    "build": "cd frontend && npm run build",
     "build:railway": "npm run install:frontend && npm run install:backend && npm run build",
     "install:frontend": "cd frontend && npm install --no-audit --no-fund",
     "install:backend": "cd backend && npm install --no-audit --no-fund",

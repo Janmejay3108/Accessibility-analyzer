@@ -1,23 +1,20 @@
 [variables]
-NODE_ENV = "production"
 CI = "false"
-GENERATE_SOURCEMAP = "false"
-DISABLE_ESLINT_PLUGIN = "true"
-NODE_OPTIONS = "--max-old-space-size=2048"
+NODE_ENV = "production"
 
 [phases.setup]
 nixPkgs = ['nodejs-18_x']
 
 [phases.install]
 cmds = [
-  'npm install --no-audit --no-fund',
-  'cd frontend && npm install --no-audit --no-fund',
-  'cd ../backend && npm install --no-audit --no-fund'
+  'npm install',
+  'cd frontend && npm install',
+  'cd ../backend && npm install'
 ]
 
 [phases.build]
 cmds = [
-  'cd frontend && CI=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true npm run build'
+  'cd frontend && npm run build'
 ]
 
 [start]
