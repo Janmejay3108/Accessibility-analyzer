@@ -35,8 +35,8 @@ RUN npx playwright install chromium
 # Copy source code
 COPY . .
 
-# Build frontend for production
-RUN cd frontend && npm run build
+# Build frontend for production with CI=false to ignore warnings
+RUN cd frontend && CI=false npm run build
 
 # Create logs directory
 RUN mkdir -p /app/logs
