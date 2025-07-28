@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { UserPlusIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import UrlInputForm from '../../components/analysis/UrlInputForm';
+import Footer from '../../components/common/Footer';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -59,6 +60,9 @@ const Home = () => {
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <Footer variant="home" />
       </div>
     </div>
   );

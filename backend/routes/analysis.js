@@ -12,6 +12,7 @@ const {
   getAnalytics,
   getScanStatus,
   triggerScan,
+  cancelScan,
   getHistoricalComparison,
   getViolationAnalysis
 } = require('../controllers/analysisController');
@@ -30,6 +31,9 @@ router.get('/:id/status', optionalAuth, getScanStatus);
 
 // Trigger manual scan for analysis request
 router.post('/:id/scan', optionalAuth, triggerScan);
+
+// Cancel active scan for analysis request
+router.delete('/:id/scan', optionalAuth, cancelScan);
 
 // Get user's analysis requests (requires authentication)
 router.get('/user/requests', verifyFirebaseToken, getUserAnalysisRequests);

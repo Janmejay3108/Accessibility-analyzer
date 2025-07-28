@@ -444,6 +444,55 @@ const triggerScan = async (req, res) => {
   }
 };
 
+// Cancel an active scan
+const cancelScan = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get analysis request
+    const analysisRequest = await AnalysisRequest.getById(id);
+
+    if (!analysisRequest) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Analysis request not found'
+      });
+    }
+
+    // Check permissions
+    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to cancel this scan'
+      });
+    }
+
+    // Cancel the scan
+    const cancelled = await scanningService.cancelScan(id);
+
+    if (cancelled) {
+      res.json({
+        message: 'Scan cancelled successfully',
+        data: {
+          id: id,
+          status: 'cancelled'
+        }
+      });
+    } else {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'No active scan found to cancel'
+      });
+    }
+  } catch (error) {
+    console.error('Error cancelling scan:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to cancel scan'
+    });
+  }
+};
+
 // Get historical analysis comparison for a URL
 const getHistoricalComparison = async (req, res) => {
   try {
@@ -658,6 +707,7 @@ module.exports = {
   getAnalytics,
   getScanStatus,
   triggerScan,
+  cancelScan,
   getHistoricalComparison,
   getViolationAnalysis
 };

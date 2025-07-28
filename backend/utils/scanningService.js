@@ -12,7 +12,7 @@ class ScanningService {
    */
   async processAnalysisRequest(analysisRequestId) {
     let scanner = null;
-    
+
     try {
       console.log(`🔄 Processing analysis request: ${analysisRequestId}`);
 
@@ -43,12 +43,24 @@ class ScanningService {
       const scannerOptions = this.buildScannerOptions(analysisRequest.settings);
       scanner = new AccessibilityScanner(scannerOptions);
 
-      // Perform the scan
+      // Perform the scan with timeout wrapper
       console.log(`🔍 Starting accessibility scan for: ${analysisRequest.url}`);
-      const scanResults = await scanner.scan(analysisRequest.url, {
-        captureScreenshot: analysisRequest.settings?.captureScreenshot || false,
-        axeOptions: analysisRequest.settings?.axeOptions || {}
+
+      // Create a timeout promise that rejects after a certain time
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Analysis timeout: The website took too long to respond or may be blocking automated access'));
+        }, scannerOptions.timeout + 10000); // Add 10 seconds buffer to scanner timeout
       });
+
+      // Race between scan and timeout
+      const scanResults = await Promise.race([
+        scanner.scan(analysisRequest.url, {
+          captureScreenshot: analysisRequest.settings?.captureScreenshot || false,
+          axeOptions: analysisRequest.settings?.axeOptions || {}
+        }),
+        timeoutPromise
+      ]);
 
       // Process and structure the results
       const processedResults = this.processResults(scanResults, analysisRequest);
@@ -84,13 +96,46 @@ class ScanningService {
     } catch (error) {
       console.error(`❌ Analysis failed for request ${analysisRequestId}:`, error);
 
-      // Update status to failed
+      // Categorize the error for better user feedback
+      let errorCategory = 'unknown';
+      let userFriendlyMessage = error.message;
+
+      if (error.message.includes('net::ERR_CONNECTION_TIMED_OUT') ||
+          error.message.includes('timeout') ||
+          error.message.includes('Analysis timeout')) {
+        errorCategory = 'timeout';
+        userFriendlyMessage = 'The website took too long to respond. This may be due to slow loading times, network issues, or the website blocking automated access.';
+      } else if (error.message.includes('net::ERR_NAME_NOT_RESOLVED') ||
+                 error.message.includes('net::ERR_INTERNET_DISCONNECTED')) {
+        errorCategory = 'network';
+        userFriendlyMessage = 'Unable to reach the website. Please check the URL and your internet connection.';
+      } else if (error.message.includes('HTTP 403') ||
+                 error.message.includes('HTTP 429') ||
+                 error.message.includes('blocked')) {
+        errorCategory = 'blocked';
+        userFriendlyMessage = 'The website is blocking automated access. This is common with sites that have anti-bot protection.';
+      } else if (error.message.includes('HTTP 404')) {
+        errorCategory = 'not_found';
+        userFriendlyMessage = 'The webpage was not found (404 error). Please check the URL.';
+      } else if (error.message.includes('HTTP 5')) {
+        errorCategory = 'server_error';
+        userFriendlyMessage = 'The website is experiencing server issues. Please try again later.';
+      } else if (error.message.includes('Content Security Policy') ||
+                 error.message.includes('CSP')) {
+        errorCategory = 'csp';
+        userFriendlyMessage = 'The website has strict security policies that prevent detailed analysis. A basic analysis was attempted.';
+      }
+
+      // Update status to failed with detailed error information
       try {
         await AnalysisRequest.update(analysisRequestId, {
           status: 'failed',
           metadata: {
             error: error.message,
-            failedAt: new Date()
+            errorCategory: errorCategory,
+            userFriendlyMessage: userFriendlyMessage,
+            failedAt: new Date(),
+            processingDuration: new Date() - (this.activeScans.get(analysisRequestId)?.startTime || new Date())
           }
         });
       } catch (updateError) {
@@ -112,7 +157,7 @@ class ScanningService {
    */
   buildScannerOptions(settings = {}) {
     return {
-      timeout: settings.timeout || 60000, // Increased to 60 seconds
+      timeout: settings.timeout || 45000, // 45 seconds - more reasonable timeout
       viewport: settings.viewport || { width: 1280, height: 720 },
       waitForSelector: settings.waitForSelector || 'body',
       userAgent: settings.userAgent || undefined

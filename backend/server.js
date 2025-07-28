@@ -65,6 +65,13 @@ app.use('*', (req, res) => {
   });
 });
 
+// Add before starting server
+if (!process.env.FIREBASE_PROJECT_ID) {
+  console.error('❌ SETUP REQUIRED: Please configure Firebase first');
+  console.error('📖 See README.md for setup instructions');
+  process.exit(1);
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
@@ -73,3 +80,4 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+

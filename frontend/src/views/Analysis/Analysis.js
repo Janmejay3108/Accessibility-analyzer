@@ -78,11 +78,16 @@ const Analysis = () => {
   const startStatusPolling = () => {
     analysisService.pollAnalysisStatus(id, (statusUpdate) => {
       setStatus(statusUpdate);
-      
+
       if (statusUpdate.status === 'completed') {
         loadResults();
-      } else if (statusUpdate.status === 'error') {
-        setError(statusUpdate.error || 'Analysis failed. Please try again.');
+      } else if (statusUpdate.status === 'failed' || statusUpdate.status === 'error') {
+        // Use user-friendly error message if available
+        const errorMessage = statusUpdate.userFriendlyMessage ||
+                            statusUpdate.error ||
+                            'Analysis failed. Please try again.';
+        setError(errorMessage);
+        setErrorType('analysis');
       }
     });
   };
@@ -104,10 +109,11 @@ const Analysis = () => {
 
   const getStatusIcon = () => {
     if (!status) return <ClockIcon className="h-5 w-5 text-gray-400" />;
-    
+
     switch (status.status) {
       case 'completed':
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+      case 'failed':
       case 'error':
         return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
       case 'processing':
@@ -119,12 +125,13 @@ const Analysis = () => {
 
   const getStatusMessage = () => {
     if (!status) return 'Loading...';
-    
+
     switch (status.status) {
       case 'completed':
         return 'Analysis completed successfully';
+      case 'failed':
       case 'error':
-        return status.error || 'Analysis failed';
+        return status.userFriendlyMessage || status.error || 'Analysis failed';
       case 'processing':
         return status.message || 'Analyzing website...';
       default:
@@ -239,7 +246,7 @@ const Analysis = () => {
             <span className="text-sm font-medium text-gray-700">
               {getStatusMessage()}
             </span>
-            {status?.status === 'error' && (
+            {(status?.status === 'failed' || status?.status === 'error') && (
               <button
                 onClick={handleRetryAnalysis}
                 className="ml-auto text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
@@ -275,6 +282,44 @@ const Analysis = () => {
                 <li>• Screen reader compatibility</li>
                 <li>• Form and input accessibility</li>
               </ul>
+            </div>
+          </div>
+        </div>
+      ) : (status?.status === 'failed' || status?.status === 'error') ? (
+        <div className="bg-white shadow rounded-lg p-8">
+          <div className="text-center">
+            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Analysis Failed
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {status.userFriendlyMessage || status.error || 'We encountered an issue while analyzing this website.'}
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-800">
+                <strong>Common reasons for analysis failures:</strong>
+              </p>
+              <ul className="text-sm text-red-700 mt-2 space-y-1">
+                <li>• Website is blocking automated access</li>
+                <li>• Slow loading times or network issues</li>
+                <li>• Website requires authentication</li>
+                <li>• Server is temporarily unavailable</li>
+                <li>• Strict security policies (CSP)</li>
+              </ul>
+            </div>
+            <div className="space-x-3">
+              <button
+                onClick={handleRetryAnalysis}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Analyze Different URL
+              </button>
             </div>
           </div>
         </div>

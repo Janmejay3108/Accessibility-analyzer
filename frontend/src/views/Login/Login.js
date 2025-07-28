@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import BrandLogo from '../../components/common/BrandLogo';
 import ForgotPassword from '../../components/auth/ForgotPassword';
+import Footer from '../../components/common/Footer';
 import './Login.css';
 
 const Login = () => {
@@ -109,7 +110,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex login-container">
       {/* Left Panel - Authentication */}
-      <div className="flex-1 max-w-md lg:max-w-lg xl:max-w-xl bg-gray-900 flex flex-col justify-center px-8 py-12 login-left-panel">
+      <div className="flex-1 max-w-md lg:max-w-lg xl:max-w-xl bg-gray-900 flex flex-col justify-center px-8 py-12 login-left-panel relative">
         {/* Brand Logo */}
         <div className="mb-8">
           <BrandLogo />
@@ -302,6 +303,9 @@ const Login = () => {
         </div>
         </>
         )}
+
+        {/* Footer */}
+        <Footer variant="login" />
       </div>
 
       {/* Mobile Continue Without Login */}

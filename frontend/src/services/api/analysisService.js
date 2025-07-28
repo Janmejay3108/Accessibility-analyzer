@@ -218,7 +218,9 @@ export const analysisService = {
         const status = {
           status: statusData.analysisRequest?.status || statusData.status,
           message: statusData.scanStatus?.message || statusData.message,
-          error: statusData.error
+          error: statusData.error,
+          userFriendlyMessage: statusData.analysisRequest?.metadata?.userFriendlyMessage || statusData.userFriendlyMessage,
+          errorCategory: statusData.analysisRequest?.metadata?.errorCategory || statusData.errorCategory
         };
 
         onUpdate(status);
@@ -227,6 +229,9 @@ export const analysisService = {
         if ((status.status === 'processing' || status.status === 'pending') && attempts < maxAttempts) {
           attempts++;
           setTimeout(poll, 2000); // Poll every 2 seconds
+        } else if (status.status === 'failed') {
+          // Stop polling for failed status
+          console.log('Analysis failed:', status.userFriendlyMessage || status.error);
         }
       } catch (error) {
         console.error('Error polling analysis status:', error);
