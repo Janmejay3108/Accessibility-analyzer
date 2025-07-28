@@ -1,5 +1,8 @@
 const { getFirestore } = require('../config/firebase-admin');
 
+// Temporary in-memory storage for development
+const inMemoryResultStorage = new Map();
+
 class AnalysisResult {
   constructor(data) {
     this.analysisRequestId = data.analysisRequestId;
@@ -46,17 +49,28 @@ class AnalysisResult {
   // Get analysis result by ID
   static async getById(id) {
     try {
-      const db = getFirestore();
-      const doc = await db.collection('analysisResults').doc(id).get();
-      
-      if (!doc.exists) {
-        return null;
+      // Check in-memory storage first for memory-based IDs
+      if (id.startsWith('result_mem_') && inMemoryResultStorage.has(id)) {
+        return inMemoryResultStorage.get(id);
       }
 
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
+      // Try Firebase
+      try {
+        const db = getFirestore();
+        const doc = await db.collection('analysisResults').doc(id).get();
+
+        if (!doc.exists) {
+          return null;
+        }
+
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable for getById result, checking in-memory storage');
+        return inMemoryResultStorage.get(id) || null;
+      }
     } catch (error) {
       console.error('Error getting analysis result:', error);
       throw error;
@@ -66,21 +80,35 @@ class AnalysisResult {
   // Get analysis result by analysis request ID
   static async getByAnalysisRequestId(analysisRequestId) {
     try {
-      const db = getFirestore();
-      const snapshot = await db.collection('analysisResults')
-        .where('analysisRequestId', '==', analysisRequestId)
-        .limit(1)
-        .get();
-
-      if (snapshot.empty) {
-        return null;
+      // Check in-memory storage first
+      for (const [id, result] of inMemoryResultStorage.entries()) {
+        if (result.analysisRequestId === analysisRequestId) {
+          return result;
+        }
       }
 
-      const doc = snapshot.docs[0];
-      return {
-        id: doc.id,
-        ...doc.data()
-      };
+      // Try Firebase
+      try {
+        const db = getFirestore();
+        const snapshot = await db.collection('analysisResults')
+          .where('analysisRequestId', '==', analysisRequestId)
+          .limit(1)
+          .get();
+
+        if (snapshot.empty) {
+          return null;
+        }
+
+        const doc = snapshot.docs[0];
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable for getByAnalysisRequestId, checking in-memory storage');
+        // Already checked in-memory storage above
+        return null;
+      }
     } catch (error) {
       console.error('Error getting analysis result by request ID:', error);
       throw error;
@@ -403,20 +431,41 @@ class AnalysisResult {
         throw new Error(`Data validation failed: ${validation.errors.join(', ')}`);
       }
 
-      const db = getFirestore();
-      const analysisResult = new AnalysisResult(data);
+      // Try Firebase first, fallback to in-memory storage
+      try {
+        const db = getFirestore();
+        const analysisResult = new AnalysisResult(data);
 
-      const docRef = await db.collection('analysisResults').add({
-        ...analysisResult,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+        const docRef = await db.collection('analysisResults').add({
+          ...analysisResult,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
 
-      console.log(`✅ Analysis result created with ID: ${docRef.id}`);
-      return {
-        id: docRef.id,
-        ...analysisResult
-      };
+        console.log(`✅ Analysis result created with ID: ${docRef.id}`);
+        return {
+          id: docRef.id,
+          ...analysisResult
+        };
+      } catch (firebaseError) {
+        console.warn('⚠️ Firebase unavailable, using in-memory storage for result:', firebaseError.message);
+
+        // Fallback to in-memory storage
+        const analysisResult = new AnalysisResult(data);
+        const id = `result_mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const resultData = {
+          id,
+          ...analysisResult,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        inMemoryResultStorage.set(id, resultData);
+        console.log(`✅ Analysis result created in memory with ID: ${id}`);
+
+        return resultData;
+      }
     } catch (error) {
       console.error('Error creating analysis result:', error);
       throw error;

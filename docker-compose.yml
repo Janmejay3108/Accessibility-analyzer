@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  accessibility-analyzer:
+    build: .
+    container_name: accessibility-analyzer-app
+    ports:
+      - "3000:3000"  # Railway uses PORT environment variable
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - /dev/shm:/dev/shm  # Shared memory for Playwright
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 900M  # Leave some memory for system
+        reservations:
+          memory: 512M
+    security_opt:
+      - seccomp:unconfined  # Required for Playwright
+    cap_add:
+      - SYS_ADMIN  # Required for Playwright sandbox
