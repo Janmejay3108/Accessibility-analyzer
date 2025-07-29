@@ -1,4 +1,4 @@
-# Accessibility Analyzer by Janmejay Tiwari
+# Web Accessibility Analyzer 
 
 A comprehensive web application for analyzing and improving website accessibility compliance with WCAG guidelines.
 
