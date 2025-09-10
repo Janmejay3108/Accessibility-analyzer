@@ -22,9 +22,10 @@ class AccessibilityScanner {
   async initialize() {
     try {
       console.log('🚀 Launching browser...');
-      this.browser = await chromium.launch({
+      console.log('Chromium executable path:', process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'default');
+
+      const launchOptions = {
         headless: true,
-        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -39,9 +40,24 @@ class AccessibilityScanner {
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
           '--single-process',
-          '--disable-extensions'
+          '--disable-extensions',
+          '--disable-software-rasterizer',
+          '--disable-background-networking'
         ]
-      });
+      };
+
+      // Try system Chromium first, then fallback to Playwright's bundled browser
+      try {
+        if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+          launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+          console.log('Trying system Chromium...');
+        }
+        this.browser = await chromium.launch(launchOptions);
+      } catch (systemError) {
+        console.warn('System Chromium failed, trying Playwright bundled browser:', systemError.message);
+        delete launchOptions.executablePath;
+        this.browser = await chromium.launch(launchOptions);
+      }
 
       this.page = await this.browser.newPage({
         viewport: this.options.viewport,
