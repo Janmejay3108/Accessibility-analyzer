@@ -39,7 +39,7 @@ const initializeFirebase = () => {
         projectId: process.env.FIREBASE_PROJECT_ID
       });
     } else {
-      throw new Error('Firebase configuration not found. Please set environment variables or service account key path.');
+      throw new Error('Firebase configuration not found. Please set FIREBASE_PROJECT_ID and other required environment variables.');
     }
 
     console.log('✅ Firebase Admin SDK initialized successfully');

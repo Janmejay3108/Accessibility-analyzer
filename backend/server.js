@@ -11,12 +11,15 @@ const { initializeFirebase } = require('./config/firebase-admin');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Firebase on startup
+// Initialize Firebase on startup (optional)
+let firebaseInitialized = false;
 try {
   initializeFirebase();
+  firebaseInitialized = true;
+  console.log('✅ Firebase Admin SDK initialized successfully');
 } catch (error) {
-  console.error('Failed to initialize Firebase:', error);
-  process.exit(1);
+  console.warn('⚠️ Firebase not configured - authentication features will be disabled');
+  console.warn('Firebase error:', error.message);
 }
 
 // Middleware
@@ -97,16 +100,14 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Add before starting server
+// Firebase configuration check (optional)
 if (!process.env.FIREBASE_PROJECT_ID) {
-  console.error('❌ SETUP REQUIRED: Please configure Firebase first');
-  console.error('📖 See README.md for setup instructions');
-  process.exit(1);
+  console.warn('⚠️ Firebase not configured - authentication features will be disabled');
+  console.warn('📖 See README.md for Firebase setup instructions');
 }
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Firebase Admin SDK initialized successfully`);
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 API URL: http://localhost:${PORT}`);

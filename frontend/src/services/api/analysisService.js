@@ -1,8 +1,25 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
+const getBaseURL = () => {
+  const envBaseURL = process.env.REACT_APP_API_BASE_URL;
+
+  // If explicitly set to empty string (production), use same domain
+  if (envBaseURL === '') {
+    return '/api';
+  }
+
+  // If set to a specific URL, use it
+  if (envBaseURL) {
+    return envBaseURL + '/api';
+  }
+
+  // Default for development
+  return 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000') + '/api',
+  baseURL: getBaseURL(),
   timeout: parseInt(process.env.REACT_APP_API_TIMEOUT) || 60000,
   headers: {
     'Content-Type': 'application/json',
