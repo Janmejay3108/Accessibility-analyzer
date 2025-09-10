@@ -10,30 +10,54 @@ import {
   updateProfile
 } from 'firebase/auth';
 
-// Firebase configuration
+// Firebase configuration with fallback
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || 'demo-api-key',
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || 'demo-project.firebaseapp.com',
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || 'demo-project',
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || 'demo-project.appspot.com',
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || '123456789',
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || 'demo-app-id'
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+// Check if Firebase is properly configured
+const isFirebaseConfigured = process.env.REACT_APP_FIREBASE_API_KEY &&
+  process.env.REACT_APP_FIREBASE_API_KEY !== 'your-web-api-key';
 
-// Configure Google provider
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+// Initialize Firebase only if properly configured
+let app, auth, googleProvider;
+
+if (isFirebaseConfigured) {
+  try {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+  } catch (error) {
+    console.warn('Firebase initialization failed:', error);
+  }
+} else {
+  console.warn('Firebase not configured - authentication features will be disabled');
+}
+
+// Configure Google provider if available
+if (googleProvider) {
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  });
+}
+
+// Helper function to check if Firebase is available
+const checkFirebaseAvailable = () => {
+  if (!isFirebaseConfigured || !auth) {
+    throw new Error('Firebase authentication is not configured. Please set up Firebase credentials.');
+  }
+};
 
 export const authService = {
   // Sign up with email and password
   signUp: async (email, password, displayName) => {
     try {
+      checkFirebaseAvailable();
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
       // Update user profile with display name
@@ -84,6 +108,7 @@ export const authService = {
 
   // Get current user
   getCurrentUser: () => {
+    if (!isFirebaseConfigured || !auth) return null;
     return auth.currentUser;
   },
 
@@ -103,6 +128,11 @@ export const authService = {
 
   // Listen to auth state changes
   onAuthStateChanged: (callback) => {
+    if (!isFirebaseConfigured || !auth) {
+      // Call callback with null user if Firebase not configured
+      callback(null);
+      return () => {}; // Return empty unsubscribe function
+    }
     return onAuthStateChanged(auth, callback);
   },
 
@@ -129,7 +159,13 @@ export const authService = {
 
   // Check if user is authenticated
   isAuthenticated: () => {
+    if (!isFirebaseConfigured || !auth) return false;
     return !!auth.currentUser;
+  },
+
+  // Check if Firebase is configured
+  isFirebaseConfigured: () => {
+    return isFirebaseConfigured;
   }
 };
 
