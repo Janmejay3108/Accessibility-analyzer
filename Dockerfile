@@ -12,7 +12,7 @@ RUN apk add --no-cache \
     ttf-freefont
 
 # Tell Playwright to use the installed Chromium
-ENV PLAYWRIGHT_BROWSERS_PATH=/usr/bin/chromium-browser
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Set working directory
@@ -31,9 +31,6 @@ RUN cd frontend && npm install
 
 # Install backend dependencies
 RUN cd backend && npm install --production
-
-# Install Playwright browsers (use system chromium)
-RUN cd backend && npx playwright install-deps
 
 # Copy source code
 COPY . .
