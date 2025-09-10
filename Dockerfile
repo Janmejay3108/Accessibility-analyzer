@@ -21,7 +21,10 @@ RUN cd backend && npm install --production
 # Copy source code
 COPY . .
 
-# Build frontend
+# Set production environment
+ENV NODE_ENV=production
+
+# Build frontend with production environment
 RUN cd frontend && npm run build
 
 # Expose port
