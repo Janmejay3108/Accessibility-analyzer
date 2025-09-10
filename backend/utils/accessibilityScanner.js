@@ -24,6 +24,7 @@ class AccessibilityScanner {
       console.log('🚀 Launching browser...');
       this.browser = await chromium.launch({
         headless: true,
+        executablePath: process.env.PLAYWRIGHT_BROWSERS_PATH || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -36,7 +37,9 @@ class AccessibilityScanner {
           '--disable-features=VizDisplayCompositor',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
+          '--disable-renderer-backgrounding',
+          '--single-process',
+          '--disable-extensions'
         ]
       });
 
