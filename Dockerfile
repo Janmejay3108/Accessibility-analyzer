@@ -4,17 +4,25 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy everything first
-COPY . .
+# Copy package files first for better caching
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+COPY backend/package*.json ./backend/
 
 # Install root dependencies
 RUN npm install --production
 
-# Build frontend
-RUN cd frontend && npm install && npm run build
+# Install frontend dependencies
+RUN cd frontend && npm install
 
 # Install backend dependencies
 RUN cd backend && npm install --production
+
+# Copy source code
+COPY . .
+
+# Build frontend
+RUN cd frontend && npm run build
 
 # Expose port
 EXPOSE 3000
