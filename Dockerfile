@@ -10,6 +10,9 @@ COPY . .
 # Install root dependencies
 RUN npm install --production
 
+# Build frontend
+RUN cd frontend && npm install && npm run build
+
 # Install backend dependencies
 RUN cd backend && npm install --production
 
