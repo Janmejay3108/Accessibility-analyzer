@@ -8,9 +8,9 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Login from './views/Login/Login';
 import Home from './views/Home/Home';
 import Analysis from './views/Analysis/Analysis';
+import AnalysisHistory from './views/AnalysisHistory/AnalysisHistory';
 import Dashboard from './views/Dashboard/Dashboard';
 import Profile from './views/Profile/Profile';
-import Auth from './views/Auth/Auth';
 
 function App() {
   return (
@@ -28,6 +28,7 @@ function App() {
                   <Layout>
                     <Routes>
                       <Route path="/home" element={<Home />} />
+                      <Route path="/analysis" element={<AnalysisHistory />} />
                       <Route path="/analysis/:id" element={<Analysis />} />
                       <Route path="/dashboard" element={
                         <ProtectedRoute>
@@ -39,7 +40,6 @@ function App() {
                           <Profile />
                         </ProtectedRoute>
                       } />
-                      <Route path="/auth" element={<Auth />} />
                     </Routes>
                   </Layout>
                 } />

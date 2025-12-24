@@ -42,39 +42,36 @@ describe('UrlInputForm', () => {
   });
 
   test('validates URL input', async () => {
-    const user = userEvent.setup();
     renderComponent();
     
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
     // Test invalid URL
-    await user.type(urlInput, 'invalid-url');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'invalid-url');
+    await userEvent.click(submitButton);
     
     expect(screen.getByText(/please enter a valid url/i)).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
   test('validates URL protocol', async () => {
-    const user = userEvent.setup();
     renderComponent();
     
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
     // Test FTP protocol (should be rejected)
-    await user.clear(urlInput);
-    await user.type(urlInput, 'ftp://example.com');
-    await user.click(submitButton);
+    await userEvent.clear(urlInput);
+    await userEvent.type(urlInput, 'ftp://example.com');
+    await userEvent.click(submitButton);
     
     expect(screen.getByText(/url must use http or https protocol/i)).toBeInTheDocument();
     expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
   test('submits form with valid URL', async () => {
-    const user = userEvent.setup();
-    const mockResponse = { data: { id: 'test-analysis-id' } };
+    const mockResponse = { data: { data: { id: 'test-analysis-id' } } };
     analysisService.createAnalysis.mockResolvedValue(mockResponse);
     
     renderComponent();
@@ -82,8 +79,8 @@ describe('UrlInputForm', () => {
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.click(submitButton);
     
     await waitFor(() => {
       expect(analysisService.createAnalysis).toHaveBeenCalledWith({
@@ -102,7 +99,6 @@ describe('UrlInputForm', () => {
   });
 
   test('handles API errors gracefully', async () => {
-    const user = userEvent.setup();
     const errorMessage = 'Network error';
     analysisService.createAnalysis.mockRejectedValue(new Error(errorMessage));
     
@@ -111,18 +107,17 @@ describe('UrlInputForm', () => {
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(screen.getByText(/failed to start analysis/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/failed to start analysis/i).length).toBeGreaterThan(0);
     });
     
     expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
   test('updates WCAG level setting', async () => {
-    const user = userEvent.setup();
     const mockResponse = { data: { id: 'test-analysis-id' } };
     analysisService.createAnalysis.mockResolvedValue(mockResponse);
     
@@ -132,9 +127,9 @@ describe('UrlInputForm', () => {
     const wcagSelect = screen.getByLabelText(/wcag compliance level/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.selectOptions(wcagSelect, 'AAA');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.selectOptions(wcagSelect, 'AAA');
+    await userEvent.click(submitButton);
     
     await waitFor(() => {
       expect(analysisService.createAnalysis).toHaveBeenCalledWith(
@@ -148,7 +143,6 @@ describe('UrlInputForm', () => {
   });
 
   test('toggles screenshot setting', async () => {
-    const user = userEvent.setup();
     const mockResponse = { data: { id: 'test-analysis-id' } };
     analysisService.createAnalysis.mockResolvedValue(mockResponse);
     
@@ -158,9 +152,9 @@ describe('UrlInputForm', () => {
     const screenshotCheckbox = screen.getByLabelText(/include screenshots/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.click(screenshotCheckbox); // Uncheck it
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.click(screenshotCheckbox); // Uncheck it
+    await userEvent.click(submitButton);
     
     await waitFor(() => {
       expect(analysisService.createAnalysis).toHaveBeenCalledWith(
@@ -174,7 +168,6 @@ describe('UrlInputForm', () => {
   });
 
   test('toggles public setting', async () => {
-    const user = userEvent.setup();
     const mockResponse = { data: { id: 'test-analysis-id' } };
     analysisService.createAnalysis.mockResolvedValue(mockResponse);
     
@@ -184,9 +177,9 @@ describe('UrlInputForm', () => {
     const publicCheckbox = screen.getByLabelText(/make results publicly viewable/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.click(publicCheckbox); // Check it
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.click(publicCheckbox); // Check it
+    await userEvent.click(submitButton);
     
     await waitFor(() => {
       expect(analysisService.createAnalysis).toHaveBeenCalledWith(
@@ -198,10 +191,9 @@ describe('UrlInputForm', () => {
   });
 
   test('disables form during submission', async () => {
-    const user = userEvent.setup();
     // Mock a delayed response
     analysisService.createAnalysis.mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({ data: { id: 'test-id' } }), 100))
+      new Promise(resolve => setTimeout(() => resolve({ data: { data: { id: 'test-id' } } }), 100))
     );
     
     renderComponent();
@@ -209,8 +201,8 @@ describe('UrlInputForm', () => {
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
-    await user.type(urlInput, 'https://example.com');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.click(submitButton);
     
     // Check that form is disabled during submission
     expect(submitButton).toBeDisabled();
@@ -222,21 +214,20 @@ describe('UrlInputForm', () => {
   });
 
   test('clears error when user starts typing', async () => {
-    const user = userEvent.setup();
     renderComponent();
     
     const urlInput = screen.getByLabelText(/website url/i);
     const submitButton = screen.getByRole('button', { name: /analyze website/i });
     
     // Trigger an error first
-    await user.type(urlInput, 'invalid-url');
-    await user.click(submitButton);
+    await userEvent.type(urlInput, 'invalid-url');
+    await userEvent.click(submitButton);
     
     expect(screen.getByText(/please enter a valid url/i)).toBeInTheDocument();
     
     // Start typing again
-    await user.clear(urlInput);
-    await user.type(urlInput, 'h');
+    await userEvent.clear(urlInput);
+    await userEvent.type(urlInput, 'h');
     
     expect(screen.queryByText(/please enter a valid url/i)).not.toBeInTheDocument();
   });

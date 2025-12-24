@@ -1,0 +1,827 @@
+- Created a platform that analyses websites for accessibility (WCAG 2.1 and ADA compliance) issues, provides AI-powered remediation suggestions, bug fixes, meanwhile tracking progress over time, storing user data and analysis history.
+- Additional Goal: Include a feature for developers to request custom website or app development services from the platform.
+- Technologies used: React.js, JavaScript, Firebase, Express.js, Node.js, axe-core, Playwright, Lighthouse.
+
+- ## Configuration Files
+
+### package.json
+- **Purpose**: Root-level package configuration and project metadata
+- **Functionality**: 
+  - Defines project name, version, and description
+  - Contains npm scripts for development and deployment
+  - Specifies Node.js and npm version requirements
+  - Lists production dependencies (axe-core, express, firebase-admin, etc.)
+  - Includes development dependencies (nodemon, prettier)
+- **Key Scripts**:
+  - `npm start`: Runs the production server
+  - `npm run dev`: Starts development server with auto-reload
+  - `npm run setup:firebase`: Initializes Firebase configuration
+
+### package-lock.json
+- **Purpose**: Dependency lock file for consistent installations
+- **Functionality**: 
+  - Ensures exact dependency versions across environments
+  - Provides integrity hashes for security
+  - Optimizes installation performance
+  - Prevents version conflicts in team development
+
+### .env (not in repository)
+- **Purpose**: Environment variables configuration
+- **Functionality**:
+  - Stores sensitive configuration data
+  - Contains Firebase project credentials
+  - Defines API endpoints and timeouts
+  - Sets deployment-specific variables
+- **Security**: Excluded from version control for security
+
+### .gitignore
+- **Purpose**: Git version control exclusion rules
+- **Functionality**:
+  - Excludes node_modules directories
+  - Ignores environment files (.env)
+  - Prevents build artifacts from being committed
+  - Excludes IDE-specific files and logs
+
+## Docker Configuration
+
+### Dockerfile
+- **Purpose**: Container configuration for deployment
+- **Functionality**:
+  - Uses Node.js 18 Alpine Linux base image
+  - Sets up working directory structure
+  - Installs production dependencies
+  - Configures container startup command
+  - Optimizes for production deployment
+
+### docker-compose.yml
+- **Purpose**: Multi-container application orchestration
+- **Functionality**:
+  - Defines service configuration
+  - Sets up port mapping (3000:3000)
+  - Configures environment variables
+  - Sets up health checks
+  - Defines resource limits and security options
+  - Enables shared memory for Playwright browser automation
+
+## Firebase Configuration
+
+### firebase.json
+- **Purpose**: Firebase project configuration
+- **Functionality**:
+  - Defines Firestore rules and indexes files
+  - Configures Firebase emulators for local development
+  - Sets up authentication emulator (port 9099)
+  - Configures Firestore emulator (port 8080)
+  - Enables Firebase UI for emulator management
+
+### firestore.rules
+- **Purpose**: Database security and access control rules
+- **Functionality**:
+  - Defines user-based access permissions
+  - Allows public creation of analysis requests
+  - Restricts data access to owners or public data
+  - Implements role-based security
+  - Validates data structure and types
+  - Supports anonymous user functionality
+
+### firestore.indexes.json
+- **Purpose**: Database query optimization indexes
+- **Functionality**:
+  - Defines composite indexes for complex queries
+  - Optimizes query performance
+  - Supports pagination and filtering
+  - Enables efficient data retrieval
+
+## Documentation Files
+
+### README.md
+- **Purpose**: Project documentation and setup guide
+- **Functionality**:
+  - Provides project overview and features
+  - Contains detailed setup instructions
+  - Explains Firebase configuration process
+  - Includes troubleshooting guide
+  - Documents API endpoints
+  - Provides contribution guidelines
+
+### Various Deployment Guides
+- **RAILWAY_DEPLOYMENT_GUIDE.md**: Railway platform deployment instructions
+- **FIREBASE_SETUP_GUIDE.md**: Detailed Firebase configuration steps
+- **DEPLOYMENT_FILES_SUMMARY.md**: Overview of all deployment-related files
+- **RAILWAY_CHECKLIST.md**: Pre-deployment verification checklist
+
+## Build and Utility Scripts
+
+### build.sh
+- **Purpose**: Automated build script for deployment
+- **Functionality**:
+  - Builds frontend React application
+  - Installs production dependencies
+  - Optimizes assets for production
+  - Prepares deployment package
+
+### verify-deployment.sh
+- **Purpose**: Post-deployment verification script
+- **Functionality**:
+  - Tests API endpoints
+  - Verifies database connectivity
+  - Checks authentication functionality
+  - Validates environment configuration
+
+================================================================================
+BACKEND DIRECTORY STRUCTURE
+================================================================================
+
+## Backend Root Files
+
+### server.js
+- **Purpose**: Main application entry point and server configuration
+- **Functionality**:
+  - Initializes Express.js server
+  - Configures middleware pipeline (CORS, security, logging)
+  - Sets up route handlers
+  - Implements error handling
+  - Manages static file serving for production
+  - Handles graceful server startup and shutdown
+- **Key Features**:
+  - Environment-aware configuration
+  - Firebase Admin SDK initialization
+  - Health check endpoints
+  - Production/development mode handling
+
+### package.json (Backend)
+- **Purpose**: Backend-specific package configuration
+- **Functionality**:
+  - Lists backend dependencies (Express, Firebase Admin, Playwright, axe-core)
+  - Defines backend-specific scripts
+  - Specifies Node.js version requirements
+  - Manages backend development dependencies
+
+## Configuration Directory (backend/config/)
+
+### firebase-admin.js
+- **Purpose**: Firebase Admin SDK initialization and configuration
+- **Functionality**:
+  - Initializes Firebase Admin SDK with service account
+  - Configures Firestore database connection
+  - Provides database and authentication service access
+  - Handles Firebase initialization errors
+  - Exports database and auth instances for use throughout backend
+- **Security Features**:
+  - Service account key validation
+  - Connection error handling
+  - Secure credential management
+
+### firebase-service-account-key.json
+- **Purpose**: Firebase service account credentials (sensitive file)
+- **Functionality**:
+  - Contains private key for Firebase Admin SDK
+  - Enables server-side Firebase operations
+  - Provides authentication for database access
+  - Required for production deployment
+- **Security**: Must be kept secure and not committed to version control
+
+### README.md (Config)
+- **Purpose**: Configuration setup documentation
+- **Functionality**:
+  - Explains Firebase setup process
+  - Documents configuration file requirements
+  - Provides troubleshooting for configuration issues
+
+## Controllers Directory (backend/controllers/)
+
+### analysisController.js
+- **Purpose**: Analysis-related business logic and request handling
+- **Functionality**:
+  - **createAnalysisRequest**: Creates new accessibility analysis requests
+  - **getAnalysisRequest**: Retrieves analysis request details
+  - **getAnalysisResult**: Fetches completed analysis results
+  - **getUserAnalysisRequests**: Gets user's analysis history
+  - **getAnalytics**: Provides dashboard analytics data
+  - **getScanStatus**: Returns real-time scan progress
+  - **triggerScan**: Manually initiates analysis scanning
+  - **cancelScan**: Stops active scanning processes
+  - **getHistoricalComparison**: Compares analysis results over time
+  - **getViolationAnalysis**: Provides detailed violation breakdowns
+- **Features**:
+  - Input validation and sanitization
+  - User permission checking
+  - Error handling and logging
+  - Asynchronous processing management
+
+### authController.js
+- **Purpose**: Authentication and user management logic
+- **Functionality**:
+  - User profile management
+  - Firebase token verification
+  - User preferences handling
+  - Authentication middleware integration
+- **Security Features**:
+  - Token validation
+  - User authorization
+  - Secure profile updates
+
+## Models Directory (backend/models/)
+
+### AnalysisRequest.js
+- **Purpose**: Data model for accessibility analysis requests
+- **Functionality**:
+  - **create()**: Creates new analysis requests in database
+  - **getById()**: Retrieves analysis request by ID
+  - **update()**: Updates analysis request status and metadata
+  - **getByUserId()**: Gets user's analysis requests with pagination
+  - **getByUrl()**: Retrieves analysis history for specific URLs
+  - **getRecent()**: Fetches recent public analysis requests
+  - **delete()**: Removes analysis requests
+- **Features**:
+  - Fallback to in-memory storage when Firebase unavailable
+  - Automatic timestamp management
+  - User association support
+  - Status tracking (pending, processing, completed, failed)
+
+### AnalysisResult.js
+- **Purpose**: Data model for accessibility analysis results
+- **Functionality**:
+  - **create()**: Stores analysis results in database
+  - **getById()**: Retrieves analysis results by ID
+  - **getByAnalysisRequestId()**: Gets results for specific analysis request
+  - **getByUserId()**: Fetches user's analysis results
+  - **getAnalytics()**: Generates analytics data from results
+  - **getByUrl()**: Gets historical results for URL comparison
+- **Features**:
+  - Complex data structure handling
+  - Analytics calculation
+  - Historical data management
+  - Performance optimization
+
+## Routes Directory (backend/routes/)
+
+### index.js
+- **Purpose**: Main route aggregation and API information
+- **Functionality**:
+  - Imports and mounts all route modules
+  - Provides API endpoint documentation
+  - Serves as central routing configuration
+  - Returns API version and available endpoints
+
+### analysis.js
+- **Purpose**: Analysis-related API endpoint definitions
+- **Functionality**:
+  - Maps HTTP methods to controller functions
+  - Defines route parameters and middleware
+  - Implements authentication requirements
+  - Handles route-specific validation
+- **Endpoints**:
+  - POST /api/analysis - Create analysis request
+  - GET /api/analysis/:id - Get analysis request
+  - GET /api/analysis/:id/result - Get analysis result
+  - GET /api/analysis/:id/status - Get scan status
+  - GET /api/analysis/user/requests - Get user analyses
+  - GET /api/analysis/dashboard/analytics - Get analytics
+
+### auth.js
+- **Purpose**: Authentication-related API endpoint definitions
+- **Functionality**:
+  - Defines authentication routes
+  - Implements token verification endpoints
+  - Handles user profile management routes
+  - Manages authentication middleware
+
+## Utilities Directory (backend/utils/)
+
+### accessibilityScanner.js
+- **Purpose**: Core accessibility scanning engine using Playwright and axe-core
+- **Functionality**:
+  - **initialize()**: Launches headless browser instance
+  - **navigateToUrl()**: Navigates to target website with error handling
+  - **runAccessibilityScan()**: Executes axe-core accessibility analysis
+  - **waitForPageReady()**: Implements site-specific loading strategies
+  - **performBasicAccessibilityAnalysis()**: Fallback analysis when axe-core fails
+  - **captureScreenshot()**: Takes screenshots for documentation
+  - **getPageMetadata()**: Extracts page information
+  - **cleanup()**: Properly closes browser resources
+- **Advanced Features**:
+  - Multiple axe-core injection strategies to bypass CSP restrictions
+  - Site-specific optimization (YouTube, LinkedIn, etc.)
+  - Fallback analysis for restricted sites
+  - Comprehensive error handling and recovery
+  - Browser automation with Playwright
+
+### scanningService.js
+- **Purpose**: Orchestrates the scanning process and manages scan queue
+- **Functionality**:
+  - **processAnalysisRequest()**: Main scanning workflow orchestration
+  - **processScanResults()**: Processes and saves scan results
+  - **generateSummary()**: Creates analysis summaries
+  - **generateRecommendations()**: Provides improvement suggestions
+  - **handleScanFailure()**: Manages scan errors and recovery
+  - **getScanStatus()**: Provides real-time scan status
+  - **cancelScan()**: Stops active scans
+- **Features**:
+  - Concurrent scan management
+  - Status tracking and updates
+  - Error handling and recovery
+  - Result processing and storage
+
+### validation.js
+- **Purpose**: Input validation and sanitization utilities
+- **Functionality**:
+  - **validateUrl()**: Comprehensive URL format and security validation
+  - **validateAnalysisSettings()**: Validates scan configuration options
+  - **validatePagination()**: Ensures proper pagination parameters
+  - **validateDateRange()**: Validates date range inputs for analytics
+- **Security Features**:
+  - XSS prevention
+  - SQL injection protection
+  - Input sanitization
+  - Format validation
+
+### dataIntegrityService.js
+- **Purpose**: Data consistency and integrity management
+- **Functionality**:
+  - Validates data consistency across collections
+  - Performs data cleanup operations
+  - Handles orphaned records
+  - Maintains referential integrity
+
+### firebase-setup.js
+- **Purpose**: Firebase initialization and setup verification script
+- **Functionality**:
+  - Tests Firebase connectivity
+  - Validates configuration
+  - Initializes required collections
+  - Verifies security rules
+
+## Middleware Directory (backend/middleware/)
+
+### auth.js (implied)
+- **Purpose**: Authentication middleware for route protection
+- **Functionality**:
+  - Verifies Firebase authentication tokens
+  - Extracts user information from tokens
+  - Provides optional authentication for public endpoints
+  - Handles authentication errors
+
+================================================================================
+FRONTEND DIRECTORY STRUCTURE
+================================================================================
+
+## Frontend Root Files
+
+### package.json (Frontend)
+- **Purpose**: Frontend package configuration and dependencies
+- **Functionality**:
+  - Lists React and related dependencies
+  - Defines build and development scripts
+  - Configures testing framework
+  - Specifies browser compatibility targets
+- **Key Dependencies**:
+  - React 18.2.0 with hooks and modern features
+  - React Router for client-side routing
+  - Firebase SDK for authentication
+  - Tailwind CSS for styling
+  - Headless UI for accessible components
+  - Heroicons for consistent iconography
+
+### tailwind.config.js
+- **Purpose**: Tailwind CSS framework configuration
+- **Functionality**:
+  - Defines custom color palette
+  - Configures responsive breakpoints
+  - Sets up custom utility classes
+  - Optimizes CSS bundle size through purging
+
+### postcss.config.js
+- **Purpose**: PostCSS processing configuration
+- **Functionality**:
+  - Integrates Tailwind CSS processing
+  - Adds vendor prefixes with Autoprefixer
+  - Optimizes CSS for production builds
+
+### vercel.json
+- **Purpose**: Vercel deployment configuration
+- **Functionality**:
+  - Configures client-side routing
+  - Sets up redirect rules
+  - Optimizes static asset serving
+
+## Public Directory (frontend/public/)
+
+### index.html
+- **Purpose**: Main HTML template for React application
+- **Functionality**:
+  - Provides root element for React mounting
+  - Includes meta tags for SEO and accessibility
+  - Sets up viewport configuration for responsive design
+  - Includes favicon and manifest references
+
+### manifest.json
+- **Purpose**: Progressive Web App (PWA) configuration
+- **Functionality**:
+  - Defines app name and description
+  - Specifies app icons for different sizes
+  - Sets display mode and theme colors
+  - Enables PWA installation capabilities
+
+### favicon.ico, logo192.png, logo512.png
+- **Purpose**: Application branding and icons
+- **Functionality**:
+  - Provides browser tab icon
+  - Supplies PWA installation icons
+  - Maintains consistent branding
+
+### robots.txt
+- **Purpose**: Search engine crawler instructions
+- **Functionality**:
+  - Guides search engine indexing
+  - Specifies crawling permissions
+  - References sitemap location
+
+## Source Directory (frontend/src/)
+
+### App.js
+- **Purpose**: Main React application component and routing configuration
+- **Functionality**:
+  - Sets up React Router for client-side navigation
+  - Configures global providers (Auth, Toast, Error Boundary)
+  - Defines application route structure
+  - Implements protected route logic
+  - Manages layout composition
+
+### App.css & index.css
+- **Purpose**: Global application styles and CSS reset
+- **Functionality**:
+  - Provides base styling and CSS reset
+  - Defines global utility classes
+  - Sets up responsive design foundations
+  - Includes accessibility-focused styles
+
+### index.js
+- **Purpose**: React application entry point and DOM mounting
+- **Functionality**:
+  - Mounts React application to DOM
+  - Configures React StrictMode for development
+  - Sets up performance monitoring
+  - Initializes application
+
+### reportWebVitals.js
+- **Purpose**: Web performance monitoring and analytics
+- **Functionality**:
+  - Measures Core Web Vitals metrics
+  - Reports performance data
+  - Integrates with analytics services
+
+### setupTests.js
+- **Purpose**: Jest testing framework configuration
+- **Functionality**:
+  - Configures testing utilities
+  - Sets up DOM testing environment
+  - Imports testing library extensions
+
+## Components Directory (frontend/src/components/)
+
+### Analysis Components (components/analysis/)
+
+#### AnalysisResults.js
+- **Purpose**: Displays comprehensive accessibility analysis results
+- **Functionality**:
+  - Renders compliance score with visual indicators
+  - Shows violation breakdown by severity (Critical, Serious, Moderate, Minor)
+  - Displays detailed violation information with descriptions
+  - Provides links to WCAG documentation for each issue
+  - Shows passed tests for positive reinforcement
+  - Implements responsive design for mobile and desktop
+  - Uses color-coded severity indicators for quick assessment
+
+#### UrlInputForm.js
+- **Purpose**: URL input form for initiating accessibility scans
+- **Functionality**:
+  - Validates URL format and structure
+  - Handles form submission and loading states
+  - Integrates with analysis API service
+  - Provides user feedback for invalid URLs
+  - Implements responsive design
+  - Manages form state and error handling
+  - Triggers analysis creation workflow
+
+### Authentication Components (components/auth/)
+
+#### ForgotPassword.js
+- **Purpose**: Password reset functionality for user accounts
+- **Functionality**:
+  - Handles password reset email requests
+  - Integrates with Firebase Authentication
+  - Provides user feedback for reset process
+  - Validates email format
+  - Manages loading and error states
+
+### Common Components (components/common/)
+
+#### BrandLogo.js
+- **Purpose**: Consistent application branding and logo display
+- **Functionality**:
+  - Renders application logo with proper sizing
+  - Supports different logo variants (header, footer, etc.)
+  - Maintains brand consistency across application
+  - Implements responsive logo sizing
+
+#### ErrorBoundary.js
+- **Purpose**: React error boundary for graceful error handling
+- **Functionality**:
+  - Catches JavaScript errors in component tree
+  - Displays user-friendly error messages
+  - Prevents application crashes from component errors
+  - Logs errors for debugging purposes
+  - Provides fallback UI when errors occur
+
+#### ErrorMessage.js
+- **Purpose**: Standardized error message display component
+- **Functionality**:
+  - Displays error messages with consistent styling
+  - Supports different error types and severities
+  - Provides dismissible error notifications
+  - Implements accessibility features for screen readers
+
+#### Footer.js
+- **Purpose**: Application footer with credits and links
+- **Functionality**:
+  - Displays developer credits and social links
+  - Provides navigation to external resources
+  - Shows copyright and legal information
+  - Supports different footer variants (home, app)
+  - Includes links to GitHub, LinkedIn, and portfolio
+
+#### Loading.js
+- **Purpose**: Loading indicators and spinners for async operations
+- **Functionality**:
+  - Provides various loading spinner sizes and styles
+  - Shows loading states during API calls
+  - Implements accessible loading indicators
+  - Supports different loading contexts (buttons, pages, components)
+
+#### ProtectedRoute.js
+- **Purpose**: Route protection for authenticated users only
+- **Functionality**:
+  - Checks user authentication status
+  - Redirects unauthenticated users to login
+  - Provides loading states during auth checks
+  - Integrates with AuthContext for user state
+
+#### StatusIndicator.js
+- **Purpose**: Visual status indicators for various application states
+- **Functionality**:
+  - Shows scan status (pending, processing, completed, failed)
+  - Provides color-coded status indicators
+  - Displays status text and icons
+  - Updates in real-time during scan progress
+
+#### Toast.js
+- **Purpose**: Notification system for user feedback
+- **Functionality**:
+  - Displays success, error, warning, and info messages
+  - Provides auto-dismissing notifications
+  - Supports manual dismissal
+  - Implements toast positioning and animation
+  - Manages notification queue and timing
+
+### Layout Components (components/layout/)
+
+#### Layout.js
+- **Purpose**: Main application layout wrapper and navigation
+- **Functionality**:
+  - Provides consistent page structure
+  - Manages navigation bar visibility
+  - Handles responsive layout adjustments
+  - Integrates header, main content, and footer
+  - Supports different layout variants for different pages
+
+## Contexts Directory (frontend/src/contexts/)
+
+### AuthContext.js
+- **Purpose**: Global authentication state management
+- **Functionality**:
+  - Manages user authentication state across application
+  - Provides authentication methods (sign in, sign up, sign out)
+  - Handles Google OAuth integration
+  - Manages authentication tokens and storage
+  - Provides user profile management
+  - Implements error handling for authentication operations
+  - Listens for authentication state changes
+  - Provides loading states for auth operations
+
+## Hooks Directory (frontend/src/hooks/)
+
+### Custom React Hooks (implied)
+- **Purpose**: Reusable stateful logic across components
+- **Functionality**:
+  - **useAuth**: Authentication state and methods
+  - **useApi**: API call management with loading and error states
+  - **useLocalStorage**: Local storage integration
+  - **useDebounce**: Input debouncing for search and forms
+  - **usePagination**: Pagination logic for data lists
+
+## Services Directory (frontend/src/services/)
+
+### API Services (services/api/)
+
+#### analysisService.js
+- **Purpose**: Analysis-related API communication layer
+- **Functionality**:
+  - **createAnalysis()**: Creates new analysis requests
+  - **getAnalysis()**: Retrieves analysis request details
+  - **getAnalysisResult()**: Fetches completed analysis results
+  - **getAnalysisStatus()**: Gets real-time scan status
+  - **pollAnalysisStatus()**: Polls for status updates with callbacks
+  - **getUserAnalyses()**: Gets user's analysis history
+  - **getDashboardAnalytics()**: Fetches dashboard analytics data
+  - **getHistoricalComparison()**: Retrieves historical analysis data
+- **Features**:
+  - Automatic authentication token handling
+  - Request/response interceptors
+  - Error handling and retry logic
+  - Response data extraction and normalization
+
+#### client.js
+- **Purpose**: HTTP client configuration and setup
+- **Functionality**:
+  - Configures axios instance with base URL and timeout
+  - Sets up request interceptors for authentication
+  - Implements response interceptors for error handling
+  - Manages API endpoint configuration
+  - Handles token refresh and authentication errors
+
+### Firebase Services (services/firebase/)
+
+#### authService.js
+- **Purpose**: Firebase authentication service integration
+- **Functionality**:
+  - **signUp()**: Creates new user accounts with email/password
+  - **signIn()**: Authenticates users with email/password
+  - **signInWithGoogle()**: Google OAuth authentication
+  - **signOut()**: User logout functionality
+  - **onAuthStateChanged()**: Authentication state listener
+  - **updateUserProfile()**: Updates user profile information
+- **Features**:
+  - Firebase SDK integration
+  - Error handling and user-friendly error messages
+  - Profile management
+  - OAuth provider configuration
+
+## Utils Directory (frontend/src/utils/)
+
+### constants.js
+- **Purpose**: Application-wide constants and configuration values
+- **Functionality**:
+  - Defines API endpoints and URLs
+  - Contains application configuration constants
+  - Provides theme and styling constants
+  - Includes validation rules and patterns
+
+### Utility Functions (implied)
+- **Purpose**: Reusable utility functions across the application
+- **Functionality**:
+  - **formatDate()**: Date formatting utilities
+  - **validateEmail()**: Email validation
+  - **debounce()**: Function debouncing
+  - **localStorage**: Local storage helpers
+  - **urlValidation**: URL format validation
+
+## Views Directory (frontend/src/views/)
+
+### Analysis View (views/Analysis/)
+
+#### Analysis.js
+- **Purpose**: Main analysis page displaying scan results and status
+- **Functionality**:
+  - Displays analysis request details
+  - Shows real-time scan progress
+  - Renders analysis results when completed
+  - Handles error states and retry functionality
+  - Provides sharing and export options
+  - Implements responsive design for mobile and desktop
+  - Manages loading states during scan process
+
+### AnalysisHistory View (views/AnalysisHistory/)
+
+#### AnalysisHistory.js
+- **Purpose**: User's analysis history and past scans
+- **Functionality**:
+  - Lists user's previous analysis requests
+  - Provides filtering and sorting options
+  - Shows analysis summaries and compliance scores
+  - Enables navigation to detailed results
+  - Implements pagination for large datasets
+  - Provides search functionality
+
+### Auth View (views/Auth/)
+
+#### Auth.js
+- **Purpose**: Authentication page with sign in/up forms
+- **Functionality**:
+  - Provides email/password authentication forms
+  - Integrates Google OAuth sign-in
+  - Handles form validation and submission
+  - Manages authentication loading states
+  - Displays authentication errors
+  - Supports password reset functionality
+
+### Dashboard View (views/Dashboard/)
+
+#### Dashboard.js
+- **Purpose**: User dashboard with analytics and overview
+- **Functionality**:
+  - Displays user's accessibility analytics
+  - Shows recent analysis results
+  - Provides compliance score trends
+  - Renders charts and visualizations
+  - Offers quick access to new analysis
+  - Implements responsive dashboard layout
+
+### Home View (views/Home/)
+
+#### Home.js
+- **Purpose**: Landing page and main entry point
+- **Functionality**:
+  - Provides URL input form for new analyses
+  - Displays application features and benefits
+  - Shows call-to-action for user registration
+  - Implements responsive hero section
+  - Includes footer with developer credits
+
+### Login View (views/Login/)
+
+#### Login.js
+- **Purpose**: Login page serving as application landing page
+- **Functionality**:
+  - Dual-panel login interface design
+  - Authentication panel with Google OAuth
+  - Skip option for anonymous usage
+  - Warning messages for unauthenticated users
+  - Responsive design with gradient backgrounds
+  - Navigation flow to analysis pages
+
+#### Login.css
+- **Purpose**: Login page specific styles and animations
+- **Functionality**:
+  - Custom CSS for login page layout
+  - Gradient background implementations
+  - Animation and transition effects
+  - Responsive design adjustments
+
+### Profile View (views/Profile/)
+
+#### Profile.js
+- **Purpose**: User profile management and settings
+- **Functionality**:
+  - Displays user profile information
+  - Provides profile editing capabilities
+  - Shows account statistics and usage
+  - Manages user preferences and settings
+  - Handles profile picture updates
+  - Implements account deletion functionality
+
+## Testing Directory (frontend/src/__tests__/)
+
+### App.integration.test.js
+- **Purpose**: Integration tests for main application functionality
+- **Functionality**:
+  - Tests complete user workflows
+  - Validates component integration
+  - Checks routing and navigation
+  - Tests authentication flows
+  - Validates API integration
+
+### Component Tests (various __tests__ directories)
+- **Purpose**: Unit tests for individual components
+- **Functionality**:
+  - Tests component rendering
+  - Validates prop handling
+  - Checks user interactions
+  - Tests error states
+  - Validates accessibility features
+
+## Build Directory (frontend/build/)
+
+### Production Build Files
+- **Purpose**: Optimized production build output
+- **Functionality**:
+  - **index.html**: Optimized HTML with asset references
+  - **static/**: Minified CSS, JavaScript, and media files
+  - **asset-manifest.json**: Asset mapping for cache busting
+  - **manifest.json**: PWA configuration
+  - **service-worker.js**: Caching and offline functionality
+
+================================================================================
+SCRIPTS DIRECTORY
+================================================================================
+
+### check-setup.js
+- **Purpose**: Development environment setup verification
+- **Functionality**:
+  - Validates Node.js and npm versions
+  - Checks Firebase configuration
+  - Verifies environment variables
+  - Tests database connectivity
+  - Provides setup recommendations
+
+This completes the comprehensive files and folders functionality reference for the Accessibility Analyser project. Every file and directory has been documented with its specific purpose, functionality, and role within the overall application architecture.

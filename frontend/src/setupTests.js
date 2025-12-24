@@ -4,6 +4,25 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
+// Mock axios (axios is ESM and CRA/Jest doesn't transform node_modules by default)
+jest.mock('axios', () => {
+  const mockAxios = {
+    create: jest.fn(),
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() }
+    }
+  };
+
+  mockAxios.create.mockImplementation(() => mockAxios);
+
+  return mockAxios;
+});
+
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}

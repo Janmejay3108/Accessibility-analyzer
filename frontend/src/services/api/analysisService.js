@@ -112,32 +112,6 @@ export const analysisService = {
     }
   },
 
-  // Get user's analysis requests
-  getUserAnalyses: async (page = 1, limit = 10) => {
-    try {
-      const response = await api.get('/analysis/user/requests', {
-        params: { page, limit }
-      });
-      return response;
-    } catch (error) {
-      console.error('Error fetching user analyses:', error);
-      throw error;
-    }
-  },
-
-  // Get analysis history by URL
-  getUrlHistory: async (url, page = 1, limit = 10) => {
-    try {
-      const response = await api.get('/analysis/url/history', {
-        params: { url, page, limit }
-      });
-      return response;
-    } catch (error) {
-      console.error('Error fetching URL history:', error);
-      throw error;
-    }
-  },
-
   // Get user's analysis requests (requires authentication)
   getUserAnalysisRequests: async (page = 1, limit = 10) => {
     try {
@@ -151,23 +125,6 @@ export const analysisService = {
       return response;
     } catch (error) {
       console.error('Error fetching user analysis requests:', error);
-      throw error;
-    }
-  },
-
-  // Get user's analysis results (requires authentication) - for dashboard consistency
-  getUserAnalysisResults: async (page = 1, limit = 10) => {
-    try {
-      const response = await api.get('/analysis/user/results', {
-        params: {
-          page,
-          limit,
-          offset: (page - 1) * limit
-        }
-      });
-      return response;
-    } catch (error) {
-      console.error('Error fetching user analysis results:', error);
       throw error;
     }
   },
@@ -198,26 +155,13 @@ export const analysisService = {
     }
   },
 
-  // Get detailed violation analysis
-  getViolationAnalysis: async (analysisId) => {
+  // Generate AI fix for specific violation
+  generateAIFix: async (analysisId, violationIndex) => {
     try {
-      const response = await api.get(`/analysis/${analysisId}/violations`);
-      return response;
+      const response = await api.post(`/analysis/${analysisId}/violations/${violationIndex}/ai-fix`);
+      return { ...response, data: response.data.data };
     } catch (error) {
-      console.error('Error fetching violation analysis:', error);
-      throw error;
-    }
-  },
-
-  // Get historical comparison
-  getHistoricalComparison: async (url) => {
-    try {
-      const response = await api.get('/analysis/history/comparison', {
-        params: { url }
-      });
-      return response;
-    } catch (error) {
-      console.error('Error fetching historical comparison:', error);
+      console.error('Error generating AI fix:', error);
       throw error;
     }
   },

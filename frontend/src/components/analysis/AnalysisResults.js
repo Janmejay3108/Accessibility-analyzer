@@ -1,16 +1,29 @@
 import React, { useState } from 'react';
-import { 
-  ExclamationTriangleIcon, 
-  CheckCircleIcon, 
+import {
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
   InformationCircleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
+import { analysisService } from '../../services/api/analysisService';
+import AIFixDisplay from './AIFixDisplay';
 
 const AnalysisResults = ({ result, analysis }) => {
   const [expandedViolations, setExpandedViolations] = useState({});
   const [activeTab, setActiveTab] = useState('violations');
+  const [aiFixResults, setAiFixResults] = useState({});
+  const [loadingAIFix, setLoadingAIFix] = useState({});
+
+  const formatDuration = (duration) => {
+    if (duration === undefined || duration === null) return 'N/A';
+    const ms = Number(duration);
+    if (Number.isNaN(ms)) return 'N/A';
+    if (ms >= 1000) return `${Math.round(ms / 1000)}s`;
+    return `${ms}ms`;
+  };
 
   if (!result) {
     return (
@@ -50,6 +63,33 @@ const AnalysisResults = ({ result, analysis }) => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handleAIFix = async (violation, violationIndex) => {
+    if (!analysis?.id) return;
+
+    setLoadingAIFix(prev => ({ ...prev, [violationIndex]: true }));
+
+    try {
+      const response = await analysisService.generateAIFix(analysis.id, violationIndex);
+      setAiFixResults(prev => ({
+        ...prev,
+        [violationIndex]: response.data.aiFix
+      }));
+    } catch (error) {
+      console.error('Error generating AI fix:', error);
+
+      // Show user-friendly error
+      setAiFixResults(prev => ({
+        ...prev,
+        [violationIndex]: {
+          error: true,
+          message: error.response?.data?.message || 'AI service is temporarily unavailable'
+        }
+      }));
+    } finally {
+      setLoadingAIFix(prev => ({ ...prev, [violationIndex]: false }));
+    }
   };
 
   // Extract data from axeCoreResults or fallback to direct properties
@@ -229,6 +269,48 @@ const AnalysisResults = ({ result, analysis }) => {
                               </div>
                             </div>
                           )}
+
+                          {/* AI Fix Section */}
+                          <div className="pt-4 border-t border-gray-100">
+                            {!aiFixResults[index] && !loadingAIFix[index] && (
+                              <button
+                                onClick={() => handleAIFix(violation, index)}
+                                className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 text-sm font-medium"
+                              >
+                                <SparklesIcon className="h-4 w-4" />
+                                <span>Fix with AI</span>
+                              </button>
+                            )}
+
+                            {loadingAIFix[index] && (
+                              <div className="flex items-center space-x-2 text-purple-600">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                                <span className="text-sm">Generating AI fix...</span>
+                              </div>
+                            )}
+
+                            {aiFixResults[index] && !aiFixResults[index].error && (
+                              <AIFixDisplay
+                                aiFix={aiFixResults[index]}
+                                onClose={() => setAiFixResults(prev => ({ ...prev, [index]: null }))}
+                              />
+                            )}
+
+                            {aiFixResults[index]?.error && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <div className="flex items-center space-x-2">
+                                  <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
+                                  <span className="text-sm text-red-700">{aiFixResults[index].message}</span>
+                                </div>
+                                <button
+                                  onClick={() => setAiFixResults(prev => ({ ...prev, [index]: null }))}
+                                  className="mt-2 text-xs text-red-600 hover:text-red-800"
+                                >
+                                  Try again
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -307,7 +389,7 @@ const AnalysisResults = ({ result, analysis }) => {
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-600">Scan Duration:</dt>
-                      <dd className="text-gray-900">{result.scanDuration ? `${result.scanDuration}ms` : 'N/A'}</dd>
+                      <dd className="text-gray-900">{formatDuration(result.scanDuration)}</dd>
                     </div>
                   </dl>
                 </div>

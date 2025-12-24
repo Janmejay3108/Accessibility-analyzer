@@ -8,11 +8,19 @@ const UrlInputForm = ({ onSubmit }) => {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [settings] = useState({
+  const [settings, setSettings] = useState({
     wcagLevel: 'AA',
     includeScreenshots: true,
     isPublic: false
   });
+
+  const handleSettingsChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setSettings((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
 
   const validateUrl = (url) => {
     try {
@@ -78,30 +86,87 @@ const UrlInputForm = ({ onSubmit }) => {
   return (
     <div className="w-full">
       <form onSubmit={handleSubmit} className="w-full">
-        {/* URL Input Field */}
-        <div className="relative">
+        <div className="mb-3">
+          <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
+            Website URL
+          </label>
           <input
             type="url"
             id="url"
             value={url}
             onChange={handleUrlChange}
             placeholder="Enter a URL to start a comprehensive accessibility analysis"
-            className="w-full px-4 py-3 text-base bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500 pr-14"
+            className="w-full px-4 py-3 text-base bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
             disabled={loading}
             required
           />
-          <button
-            type="submit"
-            disabled={loading || !url.trim()}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-          >
-            {loading ? (
-              <ArrowPathIcon className="animate-spin h-5 w-5" />
-            ) : (
-              <MagnifyingGlassIcon className="h-5 w-5" />
-            )}
-          </button>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div>
+            <label htmlFor="wcagLevel" className="block text-sm font-medium text-gray-700 mb-2">
+              WCAG Compliance Level
+            </label>
+            <select
+              id="wcagLevel"
+              name="wcagLevel"
+              value={settings.wcagLevel}
+              onChange={handleSettingsChange}
+              disabled={loading}
+              className="w-full px-3 py-2 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+            >
+              <option value="A">A</option>
+              <option value="AA">AA</option>
+              <option value="AAA">AAA</option>
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <label className="flex items-center space-x-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="includeScreenshots"
+                checked={settings.includeScreenshots}
+                onChange={handleSettingsChange}
+                disabled={loading}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              <span>Include Screenshots</span>
+            </label>
+          </div>
+
+          <div className="flex items-end">
+            <label className="flex items-center space-x-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="isPublic"
+                checked={settings.isPublic}
+                onChange={handleSettingsChange}
+                disabled={loading}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              <span>Make results publicly viewable</span>
+            </label>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || !url.trim()}
+          className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
+        >
+          {loading ? (
+            <>
+              <ArrowPathIcon className="animate-spin h-5 w-5" />
+              <span>Starting analysis...</span>
+            </>
+          ) : (
+            <>
+              <MagnifyingGlassIcon className="h-5 w-5" />
+              <span>Analyze Website</span>
+            </>
+          )}
+        </button>
       </form>
 
       {error && (

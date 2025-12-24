@@ -75,11 +75,18 @@ describe('AnalysisResults', () => {
   test('renders summary cards correctly', () => {
     render(<AnalysisResults result={mockResult} analysis={mockAnalysis} />);
     
-    expect(screen.getByText('85%')).toBeInTheDocument();
-    expect(screen.getByText('Compliance Score')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // Violations count
-    expect(screen.getByText('1')).toBeInTheDocument(); // Passes count
-    expect(screen.getByText('1')).toBeInTheDocument(); // Incomplete count
+    expect(screen.getAllByText('85%').length).toBeGreaterThan(0);
+    const complianceLabel = screen.getByText('Compliance Score', { selector: 'p' });
+    expect(complianceLabel.parentElement).toHaveTextContent(/compliance score\s*85%/i);
+
+    const violationsLabel = screen.getByText('Violations', { selector: 'p' });
+    expect(violationsLabel.parentElement).toHaveTextContent(/violations\s*2/i);
+
+    const passesLabel = screen.getByText('Passes', { selector: 'p' });
+    expect(passesLabel.parentElement).toHaveTextContent(/passes\s*1/i);
+
+    const incompleteLabel = screen.getByText('Incomplete', { selector: 'p' });
+    expect(incompleteLabel.parentElement).toHaveTextContent(/incomplete\s*1/i);
   });
 
   test('displays violations tab by default', () => {
@@ -92,11 +99,10 @@ describe('AnalysisResults', () => {
   });
 
   test('expands violation details when clicked', async () => {
-    const user = userEvent.setup();
     render(<AnalysisResults result={mockResult} analysis={mockAnalysis} />);
     
     const violationButton = screen.getByText('color-contrast').closest('button');
-    await user.click(violationButton);
+    await userEvent.click(violationButton);
     
     expect(screen.getByText('Elements must have sufficient color contrast')).toBeInTheDocument();
     expect(screen.getByText('Ensure all text elements have sufficient color contrast')).toBeInTheDocument();
@@ -104,26 +110,25 @@ describe('AnalysisResults', () => {
   });
 
   test('switches between tabs correctly', async () => {
-    const user = userEvent.setup();
     render(<AnalysisResults result={mockResult} analysis={mockAnalysis} />);
     
     // Switch to passes tab
     const passesTab = screen.getByRole('button', { name: /passes/i });
-    await user.click(passesTab);
+    await userEvent.click(passesTab);
     
     expect(screen.getByText('document-title')).toBeInTheDocument();
     expect(screen.getByText('Documents must have a title')).toBeInTheDocument();
     
     // Switch to incomplete tab
     const incompleteTab = screen.getByRole('button', { name: /incomplete/i });
-    await user.click(incompleteTab);
+    await userEvent.click(incompleteTab);
     
     expect(screen.getByText('color-contrast-enhanced')).toBeInTheDocument();
     expect(screen.getByText('Manual review required')).toBeInTheDocument();
     
     // Switch to summary tab
     const summaryTab = screen.getByRole('button', { name: /summary/i });
-    await user.click(summaryTab);
+    await userEvent.click(summaryTab);
     
     expect(screen.getByText('Analysis Details')).toBeInTheDocument();
     expect(screen.getByText('https://example.com')).toBeInTheDocument();
@@ -131,11 +136,10 @@ describe('AnalysisResults', () => {
   });
 
   test('displays recommendations in summary tab', async () => {
-    const user = userEvent.setup();
     render(<AnalysisResults result={mockResult} analysis={mockAnalysis} />);
     
     const summaryTab = screen.getByRole('button', { name: /summary/i });
-    await user.click(summaryTab);
+    await userEvent.click(summaryTab);
     
     expect(screen.getByText('Key Recommendations')).toBeInTheDocument();
     expect(screen.getByText('Fix color contrast issues')).toBeInTheDocument();
@@ -144,16 +148,15 @@ describe('AnalysisResults', () => {
   });
 
   test('copies CSS selector to clipboard', async () => {
-    const user = userEvent.setup();
     render(<AnalysisResults result={mockResult} analysis={mockAnalysis} />);
     
     // Expand first violation
     const violationButton = screen.getByText('color-contrast').closest('button');
-    await user.click(violationButton);
+    await userEvent.click(violationButton);
     
     // Click copy button
     const copyButton = screen.getByTitle('Copy selector');
-    await user.click(copyButton);
+    await userEvent.click(copyButton);
     
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('.text-gray-400');
   });
@@ -222,7 +225,6 @@ describe('AnalysisResults', () => {
   });
 
   test('limits displayed affected elements', async () => {
-    const user = userEvent.setup();
     const resultWithManyNodes = {
       ...mockResult,
       violations: [
@@ -242,7 +244,7 @@ describe('AnalysisResults', () => {
     
     // Expand the violation
     const violationButton = screen.getByText('many-nodes').closest('button');
-    await user.click(violationButton);
+    await userEvent.click(violationButton);
     
     // Should show only first 3 elements
     expect(screen.getByText('.element-0')).toBeInTheDocument();

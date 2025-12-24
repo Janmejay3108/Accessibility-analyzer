@@ -142,7 +142,7 @@ const Dashboard = () => {
             <CheckCircleIcon className="h-5 w-5 text-blue-400" />
             <div className="ml-3">
               <p className="text-sm text-blue-800">
-                <Link to="/login" className="font-medium underline hover:text-blue-900">
+                <Link to="/" className="font-medium underline hover:text-blue-900">
                   Sign in
                 </Link> to view your personal analytics and track your accessibility analysis history.
               </p>

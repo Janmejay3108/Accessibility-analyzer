@@ -38,9 +38,9 @@ const Footer = ({ className = '', variant = 'default' }) => {
     switch (variant) {
       case 'login':
         return {
-          container: 'absolute bottom-0 left-0 right-0 p-6 text-center',
-          text: 'text-gray-400 text-sm',
-          linkContainer: 'flex justify-center space-x-4 mt-3',
+          container: 'absolute bottom-0 left-0 right-0 p-4 text-center',
+          text: 'text-gray-400 text-xs',
+          linkContainer: 'flex justify-center space-x-3 mt-2',
           link: 'text-gray-400 hover:text-white transition-colors duration-200'
         };
       case 'home':
@@ -65,7 +65,7 @@ const Footer = ({ className = '', variant = 'default' }) => {
   return (
     <footer className={`${styles.container} ${className}`}>
       <p className={styles.text}>
-        © 2025 Janmejay Tiwari. All rights reserved.
+        {variant === 'login' ? 'Made by Janmejay Tiwari' : 'Made with 💻 by Janmejay Tiwari'}
       </p>
       <div className={styles.linkContainer}>
         {socialLinks.map((link) => (

@@ -1,1 +1,6 @@
 .vercel
+
+.env
+.env.*
+
+config/firebase-service-account-key.json

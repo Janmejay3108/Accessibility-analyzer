@@ -1,7 +1,8 @@
 const AnalysisRequest = require('../models/AnalysisRequest');
 const AnalysisResult = require('../models/AnalysisResult');
 const scanningService = require('../utils/scanningService');
-const { validateUrl, validateAnalysisSettings, validatePagination, validateDateRange } = require('../utils/validation');
+const geminiService = require('../services/geminiService');
+const { validateUrl, validateAnalysisSettings, validatePagination } = require('../utils/validation');
 
 // Create a new analysis request
 const createAnalysisRequest = async (req, res) => {
@@ -37,13 +38,13 @@ const createAnalysisRequest = async (req, res) => {
     });
 
     // Trigger accessibility scanning process asynchronously
-    setImmediate(async () => {
+    (async () => {
       try {
         await scanningService.processAnalysisRequest(analysisRequest.id);
       } catch (error) {
         console.error(`Background scan failed for request ${analysisRequest.id}:`, error);
       }
-    });
+    })();
 
     res.status(201).json({
       message: 'Analysis request created successfully. Scanning will begin shortly.',
@@ -180,82 +181,6 @@ const getUserAnalysisRequests = async (req, res) => {
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to retrieve user analysis requests'
-    });
-  }
-};
-
-// Get user's analysis results (for dashboard consistency)
-const getUserAnalysisResults = async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required'
-      });
-    }
-
-    // Validate pagination
-    const paginationValidation = validatePagination(req.query);
-    if (!paginationValidation.isValid) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Pagination validation failed',
-        details: paginationValidation.errors
-      });
-    }
-
-    const { limit, offset } = paginationValidation.pagination;
-
-    const analysisResults = await AnalysisResult.getByUserId(
-      req.user.uid,
-      limit,
-      offset
-    );
-
-    res.json({
-      message: 'User analysis results retrieved successfully',
-      data: analysisResults,
-      pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        count: analysisResults.length
-      }
-    });
-  } catch (error) {
-    console.error('Error getting user analysis results:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve user analysis results'
-    });
-  }
-};
-
-// Get analysis requests by URL (for longitudinal tracking)
-const getAnalysisByUrl = async (req, res) => {
-  try {
-    const { url } = req.query;
-    
-    if (!url) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'URL parameter is required'
-      });
-    }
-
-    const { limit = 10 } = req.query;
-    
-    const analysisRequests = await AnalysisRequest.getByUrl(url, parseInt(limit));
-
-    res.json({
-      message: 'Analysis requests by URL retrieved successfully',
-      data: analysisRequests,
-      url: url
-    });
-  } catch (error) {
-    console.error('Error getting analysis by URL:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve analysis by URL'
     });
   }
 };
@@ -493,77 +418,30 @@ const cancelScan = async (req, res) => {
   }
 };
 
-// Get historical analysis comparison for a URL
-const getHistoricalComparison = async (req, res) => {
+// Generate AI fix for specific violation
+const generateAIFix = async (req, res) => {
   try {
-    const { url } = req.query;
-    const { limit = 5 } = req.query;
+    const { id, violationIndex } = req.params;
 
-    if (!url) {
+    // Validate violation index
+    const violationIdx = parseInt(violationIndex);
+    if (isNaN(violationIdx) || violationIdx < 0) {
       return res.status(400).json({
         error: 'Bad Request',
-        message: 'URL parameter is required'
+        message: 'Invalid violation index'
       });
     }
 
-    // Validate URL
-    const urlValidation = validateUrl(url);
-    if (!urlValidation.isValid) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'URL validation failed',
-        details: urlValidation.errors
+    // Check if AI service is available
+    if (!geminiService.isAvailable()) {
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'AI service is not configured. Please contact administrator.'
       });
     }
 
-    // Get historical analysis results for this URL
-    const analysisResults = await AnalysisResult.getByUrl(url, parseInt(limit));
-
-    if (analysisResults.length === 0) {
-      return res.json({
-        message: 'No historical data found for this URL',
-        data: {
-          url: url,
-          analyses: [],
-          trends: null
-        }
-      });
-    }
-
-    // Calculate trends
-    const trends = calculateTrends(analysisResults);
-
-    res.json({
-      message: 'Historical comparison retrieved successfully',
-      data: {
-        url: url,
-        analyses: analysisResults.map(result => ({
-          id: result.id,
-          createdAt: result.createdAt,
-          summary: result.summary,
-          complianceScore: result.summary?.complianceScore || 0,
-          totalIssues: result.summary?.totalIssues || 0,
-          criticalIssues: result.summary?.criticalIssues || 0
-        })),
-        trends: trends
-      }
-    });
-  } catch (error) {
-    console.error('Error getting historical comparison:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve historical comparison'
-    });
-  }
-};
-
-// Get detailed violation analysis
-const getViolationAnalysis = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const analysisResult = await AnalysisResult.getById(id);
-
+    // Get analysis result
+    const analysisResult = await AnalysisResult.getByAnalysisRequestId(id);
     if (!analysisResult) {
       return res.status(404).json({
         error: 'Not Found',
@@ -571,143 +449,68 @@ const getViolationAnalysis = async (req, res) => {
       });
     }
 
-    // Check permissions
-    if (analysisResult.userId && req.user?.uid !== analysisResult.userId) {
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'You do not have permission to view this analysis'
+    // Get specific violation
+    const violations = analysisResult.axeCoreResults?.violations || [];
+    if (violationIdx >= violations.length) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Violation not found at specified index'
       });
     }
 
-    // Process violations for detailed analysis
-    const violationAnalysis = processViolationAnalysis(analysisResult.axeCoreResults);
+    const violation = violations[violationIdx];
+
+    // Build context for AI
+    const context = {
+      url: analysisResult.url,
+      wcagLevel: analysisResult.summary?.wcagLevel || 'AA',
+      analysisDate: analysisResult.createdAt
+    };
+
+    // Generate AI fix
+    const aiFix = await geminiService.generateAccessibilityFix(violation, context);
 
     res.json({
-      message: 'Violation analysis retrieved successfully',
+      message: 'AI fix generated successfully',
       data: {
         analysisId: id,
-        url: analysisResult.url,
-        violationAnalysis: violationAnalysis,
-        summary: analysisResult.summary,
-        scanDate: analysisResult.createdAt
+        violationIndex: violationIdx,
+        violation: {
+          id: violation.id,
+          impact: violation.impact,
+          description: violation.description
+        },
+        aiFix: aiFix
       }
     });
+
   } catch (error) {
-    console.error('Error getting violation analysis:', error);
+    console.error('Error generating AI fix:', error);
+
+    // Handle specific error types
+    if (error.message.includes('AI service unavailable')) {
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'AI service is temporarily unavailable. Please try again later.'
+      });
+    }
+
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to retrieve violation analysis'
+      message: 'Failed to generate AI fix'
     });
   }
 };
-
-// Helper function to calculate trends
-function calculateTrends(analysisResults) {
-  if (analysisResults.length < 2) {
-    return null;
-  }
-
-  const sorted = analysisResults.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  const latest = sorted[sorted.length - 1];
-  const previous = sorted[sorted.length - 2];
-
-  const complianceChange = (latest.summary?.complianceScore || 0) - (previous.summary?.complianceScore || 0);
-  const issuesChange = (latest.summary?.totalIssues || 0) - (previous.summary?.totalIssues || 0);
-
-  return {
-    complianceScoreChange: complianceChange,
-    totalIssuesChange: issuesChange,
-    trend: complianceChange > 0 ? 'improving' : complianceChange < 0 ? 'declining' : 'stable',
-    timespan: {
-      from: previous.createdAt,
-      to: latest.createdAt
-    },
-    dataPoints: sorted.length
-  };
-}
-
-// Helper function to process violation analysis
-function processViolationAnalysis(axeCoreResults) {
-  if (!axeCoreResults || !axeCoreResults.violations) {
-    return {
-      byImpact: {},
-      byWCAGLevel: {},
-      byCategory: {},
-      mostCommon: [],
-      affectedElements: 0
-    };
-  }
-
-  const analysis = {
-    byImpact: { critical: 0, serious: 0, moderate: 0, minor: 0 },
-    byWCAGLevel: { 'wcag2a': 0, 'wcag2aa': 0, 'wcag21aa': 0, 'wcag21aaa': 0 },
-    byCategory: {},
-    mostCommon: [],
-    affectedElements: 0
-  };
-
-  const violationCounts = {};
-
-  axeCoreResults.violations.forEach(violation => {
-    // Count by impact
-    if (violation.impact) {
-      analysis.byImpact[violation.impact] = (analysis.byImpact[violation.impact] || 0) + 1;
-    }
-
-    // Count by WCAG level
-    violation.tags?.forEach(tag => {
-      if (tag.startsWith('wcag')) {
-        analysis.byWCAGLevel[tag] = (analysis.byWCAGLevel[tag] || 0) + 1;
-      }
-    });
-
-    // Count affected elements
-    analysis.affectedElements += violation.nodes?.length || 0;
-
-    // Track violation frequency
-    violationCounts[violation.id] = (violationCounts[violation.id] || 0) + (violation.nodes?.length || 1);
-
-    // Categorize violations
-    const category = categorizeViolation(violation);
-    analysis.byCategory[category] = (analysis.byCategory[category] || 0) + 1;
-  });
-
-  // Get most common violations
-  analysis.mostCommon = Object.entries(violationCounts)
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 10)
-    .map(([id, count]) => ({ id, count }));
-
-  return analysis;
-}
-
-// Helper function to categorize violations
-function categorizeViolation(violation) {
-  const tags = violation.tags || [];
-
-  if (tags.some(tag => tag.includes('color'))) return 'Color & Contrast';
-  if (tags.some(tag => tag.includes('keyboard'))) return 'Keyboard Navigation';
-  if (tags.some(tag => tag.includes('forms'))) return 'Forms';
-  if (tags.some(tag => tag.includes('images'))) return 'Images & Media';
-  if (tags.some(tag => tag.includes('headings'))) return 'Headings & Structure';
-  if (tags.some(tag => tag.includes('links'))) return 'Links';
-  if (tags.some(tag => tag.includes('aria'))) return 'ARIA & Semantics';
-
-  return 'Other';
-}
 
 module.exports = {
   createAnalysisRequest,
   getAnalysisRequest,
   getAnalysisResult,
   getUserAnalysisRequests,
-  getUserAnalysisResults,
-  getAnalysisByUrl,
   getRecentAnalyses,
   getAnalytics,
   getScanStatus,
   triggerScan,
   cancelScan,
-  getHistoricalComparison,
-  getViolationAnalysis
+  generateAIFix
 };

@@ -110,7 +110,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex login-container">
       {/* Left Panel - Authentication */}
-      <div className="flex-1 max-w-md lg:max-w-lg xl:max-w-xl bg-gray-900 flex flex-col justify-center px-8 py-12 login-left-panel relative">
+      <div className="flex-1 max-w-md lg:max-w-lg xl:max-w-xl bg-gray-900 flex flex-col justify-center px-8 py-12 login-left-panel relative pb-24">
         {/* Brand Logo */}
         <div className="mb-8">
           <BrandLogo />
@@ -285,7 +285,7 @@ const Login = () => {
         </form>
 
         {/* Toggle Login/Signup */}
-        <div className="mt-6 text-center">
+        <div className="mt-6 mb-8 text-center">
           <span className="text-gray-400">
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
           </span>

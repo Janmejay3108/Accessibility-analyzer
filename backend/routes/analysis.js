@@ -6,19 +6,25 @@ const {
   getAnalysisRequest,
   getAnalysisResult,
   getUserAnalysisRequests,
-  getUserAnalysisResults,
-  getAnalysisByUrl,
   getRecentAnalyses,
   getAnalytics,
   getScanStatus,
   triggerScan,
   cancelScan,
-  getHistoricalComparison,
-  getViolationAnalysis
+  generateAIFix
 } = require('../controllers/analysisController');
 
 // Create new analysis request
 router.post('/', optionalAuth, createAnalysisRequest);
+
+// Get user's analysis requests (requires authentication)
+router.get('/user/requests', verifyFirebaseToken, getUserAnalysisRequests);
+
+// Get recent public analyses
+router.get('/public/recent', getRecentAnalyses);
+
+// Get analytics data (requires authentication for user-specific data)
+router.get('/dashboard/analytics', verifyFirebaseToken, getAnalytics);
 
 // Get analysis request by ID
 router.get('/:id', optionalAuth, getAnalysisRequest);
@@ -35,25 +41,7 @@ router.post('/:id/scan', optionalAuth, triggerScan);
 // Cancel active scan for analysis request
 router.delete('/:id/scan', optionalAuth, cancelScan);
 
-// Get user's analysis requests (requires authentication)
-router.get('/user/requests', verifyFirebaseToken, getUserAnalysisRequests);
-
-// Get user's analysis results (requires authentication) - for dashboard consistency
-router.get('/user/results', verifyFirebaseToken, getUserAnalysisResults);
-
-// Get analysis requests by URL (for longitudinal tracking)
-router.get('/url/history', getAnalysisByUrl);
-
-// Get recent public analyses
-router.get('/public/recent', getRecentAnalyses);
-
-// Get analytics data (requires authentication for user-specific data)
-router.get('/dashboard/analytics', verifyFirebaseToken, getAnalytics);
-
-// Get historical comparison for a URL
-router.get('/history/comparison', getHistoricalComparison);
-
-// Get detailed violation analysis for a result
-router.get('/:id/violations', optionalAuth, getViolationAnalysis);
+// Generate AI fix for specific violation
+router.post('/:id/violations/:violationIndex/ai-fix', optionalAuth, generateAIFix);
 
 module.exports = router;

@@ -143,6 +143,14 @@ function validateAnalysisSettings(settings) {
     }
   }
 
+  if (settings.includeScreenshots !== undefined && settings.captureScreenshot === undefined) {
+    if (typeof settings.includeScreenshots !== 'boolean') {
+      errors.push('includeScreenshots must be a boolean');
+    } else {
+      validatedSettings.captureScreenshot = settings.includeScreenshots;
+    }
+  }
+
   // Validate axe options
   if (settings.axeOptions) {
     if (typeof settings.axeOptions !== 'object') {

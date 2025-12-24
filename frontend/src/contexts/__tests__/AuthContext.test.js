@@ -15,6 +15,10 @@ const localStorageMock = {
   removeItem: jest.fn(),
   clear: jest.fn(),
 };
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+});
 global.localStorage = localStorageMock;
 
 // Test component that uses the auth context
@@ -39,16 +43,16 @@ const TestComponent = () => {
       <div data-testid="error">{error}</div>
       <div data-testid="user-email">{user?.email || 'No user'}</div>
       
-      <button onClick={() => signIn('test@example.com', 'password')}>
+      <button onClick={() => signIn('test@example.com', 'password').catch(() => {})}>
         Sign In
       </button>
-      <button onClick={() => signUp('test@example.com', 'password', 'Test User')}>
+      <button onClick={() => signUp('test@example.com', 'password', 'Test User').catch(() => {})}>
         Sign Up
       </button>
-      <button onClick={signInWithGoogle}>
+      <button onClick={() => signInWithGoogle().catch(() => {})}>
         Sign In with Google
       </button>
-      <button onClick={signOut}>
+      <button onClick={() => signOut().catch(() => {})}>
         Sign Out
       </button>
     </div>
@@ -65,6 +69,7 @@ describe('AuthContext', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUser.getIdToken.mockResolvedValue('mock-token');
     localStorageMock.getItem.mockClear();
     localStorageMock.setItem.mockClear();
     localStorageMock.removeItem.mockClear();
@@ -109,11 +114,12 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user-email')).toHaveTextContent('test@example.com');
     });
 
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('authToken', 'mock-token');
+    await waitFor(() => {
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('authToken', 'mock-token');
+    });
   });
 
   test('handles sign in successfully', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(null);
       return jest.fn();
@@ -123,7 +129,7 @@ describe('AuthContext', () => {
     renderWithProvider();
 
     const signInButton = screen.getByText('Sign In');
-    await user.click(signInButton);
+    await userEvent.click(signInButton);
 
     await waitFor(() => {
       expect(authService.signIn).toHaveBeenCalledWith('test@example.com', 'password');
@@ -131,7 +137,6 @@ describe('AuthContext', () => {
   });
 
   test('handles sign in error', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(null);
       return jest.fn();
@@ -143,7 +148,7 @@ describe('AuthContext', () => {
     renderWithProvider();
 
     const signInButton = screen.getByText('Sign In');
-    await user.click(signInButton);
+    await userEvent.click(signInButton);
 
     await waitFor(() => {
       expect(screen.getByTestId('error')).toHaveTextContent('Incorrect password.');
@@ -151,7 +156,6 @@ describe('AuthContext', () => {
   });
 
   test('handles sign up successfully', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(null);
       return jest.fn();
@@ -161,7 +165,7 @@ describe('AuthContext', () => {
     renderWithProvider();
 
     const signUpButton = screen.getByText('Sign Up');
-    await user.click(signUpButton);
+    await userEvent.click(signUpButton);
 
     await waitFor(() => {
       expect(authService.signUp).toHaveBeenCalledWith('test@example.com', 'password', 'Test User');
@@ -169,7 +173,6 @@ describe('AuthContext', () => {
   });
 
   test('handles Google sign in successfully', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(null);
       return jest.fn();
@@ -179,7 +182,7 @@ describe('AuthContext', () => {
     renderWithProvider();
 
     const googleSignInButton = screen.getByText('Sign In with Google');
-    await user.click(googleSignInButton);
+    await userEvent.click(googleSignInButton);
 
     await waitFor(() => {
       expect(authService.signInWithGoogle).toHaveBeenCalled();
@@ -187,7 +190,6 @@ describe('AuthContext', () => {
   });
 
   test('handles sign out successfully', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(mockUser);
       return jest.fn();
@@ -197,7 +199,7 @@ describe('AuthContext', () => {
     renderWithProvider();
 
     const signOutButton = screen.getByText('Sign Out');
-    await user.click(signOutButton);
+    await userEvent.click(signOutButton);
 
     await waitFor(() => {
       expect(authService.signOut).toHaveBeenCalled();
@@ -205,7 +207,6 @@ describe('AuthContext', () => {
   });
 
   test('maps Firebase error codes to user-friendly messages', async () => {
-    const user = userEvent.setup();
     authService.onAuthStateChanged.mockImplementation((callback) => {
       callback(null);
       return jest.fn();
@@ -221,14 +222,16 @@ describe('AuthContext', () => {
     for (const testCase of testCases) {
       authService.signIn.mockRejectedValue({ code: testCase.code });
       
-      renderWithProvider();
+      const { unmount } = renderWithProvider();
       
       const signInButton = screen.getByText('Sign In');
-      await user.click(signInButton);
+      await userEvent.click(signInButton);
 
       await waitFor(() => {
         expect(screen.getByTestId('error')).toHaveTextContent(testCase.expected);
       });
+
+      unmount();
     }
   });
 

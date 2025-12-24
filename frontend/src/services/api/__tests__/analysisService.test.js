@@ -2,7 +2,23 @@ import axios from 'axios';
 import { analysisService } from '../analysisService';
 
 // Mock axios
-jest.mock('axios');
+jest.mock('axios', () => {
+  const mockAxios = {
+    create: jest.fn(() => mockAxios),
+    get: jest.fn(),
+    post: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() }
+    }
+  };
+
+  return {
+    __esModule: true,
+    default: mockAxios
+  };
+});
 const mockedAxios = axios;
 
 // Mock localStorage
@@ -23,23 +39,36 @@ describe('analysisService', () => {
     isPublic: false
   };
 
+  const mockAnalysis = {
+    id: 'test-analysis-id',
+    url: 'https://example.com',
+    status: 'pending',
+    createdAt: '2024-01-01T00:00:00Z'
+  };
+
   const mockAnalysisResponse = {
     data: {
-      id: 'test-analysis-id',
-      url: 'https://example.com',
-      status: 'pending',
-      createdAt: '2024-01-01T00:00:00Z'
+      message: 'OK',
+      data: {
+        id: 'test-analysis-id',
+        url: 'https://example.com',
+        status: 'pending',
+        createdAt: '2024-01-01T00:00:00Z'
+      }
     }
   };
 
   const mockResultResponse = {
     data: {
-      id: 'test-result-id',
-      analysisId: 'test-analysis-id',
-      complianceScore: 85,
-      violations: [],
-      passes: [],
-      incomplete: []
+      message: 'OK',
+      data: {
+        id: 'test-result-id',
+        analysisId: 'test-analysis-id',
+        complianceScore: 85,
+        violations: [],
+        passes: [],
+        incomplete: []
+      }
     }
   };
 
@@ -79,7 +108,7 @@ describe('analysisService', () => {
       const result = await analysisService.getAnalysis('test-analysis-id');
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/test-analysis-id');
-      expect(result).toEqual(mockAnalysisResponse);
+      expect(result.data).toEqual(mockAnalysisResponse.data.data);
     });
 
     test('handles not found error', async () => {
@@ -103,7 +132,7 @@ describe('analysisService', () => {
       const result = await analysisService.getAnalysisResult('test-analysis-id');
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/test-analysis-id/result');
-      expect(result).toEqual(mockResultResponse);
+      expect(result.data).toEqual(mockResultResponse.data.data);
     });
   });
 
@@ -111,9 +140,12 @@ describe('analysisService', () => {
     test('fetches analysis status successfully', async () => {
       const statusResponse = {
         data: {
-          status: 'processing',
-          message: 'Analyzing website...',
-          progress: 50
+          message: 'OK',
+          data: {
+            status: 'processing',
+            message: 'Analyzing website...',
+            progress: 50
+          }
         }
       };
       mockedAxios.get.mockResolvedValue(statusResponse);
@@ -121,7 +153,7 @@ describe('analysisService', () => {
       const result = await analysisService.getAnalysisStatus('test-analysis-id');
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/test-analysis-id/status');
-      expect(result).toEqual(statusResponse);
+      expect(result.data).toEqual(statusResponse.data.data);
     });
   });
 
@@ -137,8 +169,8 @@ describe('analysisService', () => {
     });
   });
 
-  describe('getUserAnalyses', () => {
-    test('fetches user analyses with default pagination', async () => {
+  describe('getUserAnalysisRequests', () => {
+    test('fetches user analysis requests with default pagination', async () => {
       const analysesResponse = {
         data: {
           analyses: [mockAnalysisResponse.data],
@@ -147,43 +179,29 @@ describe('analysisService', () => {
       };
       mockedAxios.get.mockResolvedValue(analysesResponse);
 
-      const result = await analysisService.getUserAnalyses();
+      const result = await analysisService.getUserAnalysisRequests();
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/user/requests', {
-        params: { page: 1, limit: 10 }
+        params: { page: 1, limit: 10, offset: 0 }
       });
       expect(result).toEqual(analysesResponse);
     });
 
-    test('fetches user analyses with custom pagination', async () => {
+    test('fetches user analysis requests with custom pagination', async () => {
       const analysesResponse = { data: { analyses: [] } };
       mockedAxios.get.mockResolvedValue(analysesResponse);
 
-      await analysisService.getUserAnalyses(2, 20);
+      await analysisService.getUserAnalysisRequests(2, 20);
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/user/requests', {
-        params: { page: 2, limit: 20 }
+        params: { page: 2, limit: 20, offset: 20 }
       });
-    });
-  });
-
-  describe('getUrlHistory', () => {
-    test('fetches URL history successfully', async () => {
-      const historyResponse = { data: { analyses: [] } };
-      mockedAxios.get.mockResolvedValue(historyResponse);
-
-      const result = await analysisService.getUrlHistory('https://example.com');
-
-      expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/url/history', {
-        params: { url: 'https://example.com', page: 1, limit: 10 }
-      });
-      expect(result).toEqual(historyResponse);
     });
   });
 
   describe('getRecentPublicAnalyses', () => {
     test('fetches recent public analyses successfully', async () => {
-      const recentResponse = { data: [mockAnalysisResponse.data] };
+      const recentResponse = { data: { message: 'OK', data: [mockAnalysis] } };
       mockedAxios.get.mockResolvedValue(recentResponse);
 
       const result = await analysisService.getRecentPublicAnalyses(5);
@@ -191,7 +209,7 @@ describe('analysisService', () => {
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/public/recent', {
         params: { limit: 5 }
       });
-      expect(result).toEqual(recentResponse);
+      expect(result.data).toEqual(recentResponse.data.data);
     });
   });
 
@@ -199,9 +217,12 @@ describe('analysisService', () => {
     test('fetches dashboard analytics successfully', async () => {
       const analyticsResponse = {
         data: {
-          totalAnalyses: 100,
-          averageComplianceScore: 85,
-          totalViolations: 250
+          message: 'OK',
+          data: {
+            totalAnalyses: 100,
+            averageComplianceScore: 85,
+            totalViolations: 250
+          }
         }
       };
       mockedAxios.get.mockResolvedValue(analyticsResponse);
@@ -209,39 +230,54 @@ describe('analysisService', () => {
       const result = await analysisService.getDashboardAnalytics();
 
       expect(mockedAxios.get).toHaveBeenCalledWith('/analysis/dashboard/analytics');
-      expect(result).toEqual(analyticsResponse);
+      expect(result.data).toEqual(analyticsResponse.data.data);
     });
   });
 
   describe('pollAnalysisStatus', () => {
     test('polls status until completion', async () => {
       const statusResponses = [
-        { data: { status: 'processing', message: 'Starting...' } },
-        { data: { status: 'processing', message: 'Analyzing...' } },
-        { data: { status: 'completed', message: 'Analysis complete' } }
+        { status: 'processing', message: 'Starting...' },
+        { status: 'processing', message: 'Analyzing...' },
+        { status: 'completed', message: 'Analysis complete' }
       ];
 
       let callCount = 0;
       mockedAxios.get.mockImplementation(() => {
-        return Promise.resolve(statusResponses[callCount++]);
+        return Promise.resolve({
+          data: {
+            message: 'OK',
+            data: statusResponses[callCount++]
+          }
+        });
       });
 
       const onUpdate = jest.fn();
-      
-      // Mock setTimeout to execute immediately
-      jest.spyOn(global, 'setTimeout').mockImplementation((callback) => {
-        callback();
-        return 123; // mock timer id
-      });
 
-      await analysisService.pollAnalysisStatus('test-analysis-id', onUpdate, 3);
+      jest.useFakeTimers();
+
+      const flush = async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      };
+
+      analysisService.pollAnalysisStatus('test-analysis-id', onUpdate, 3);
+
+      // First poll resolves
+      await flush();
+      // Second poll
+      jest.runOnlyPendingTimers();
+      await flush();
+      // Third poll
+      jest.runOnlyPendingTimers();
+      await flush();
 
       expect(onUpdate).toHaveBeenCalledTimes(3);
-      expect(onUpdate).toHaveBeenNthCalledWith(1, { status: 'processing', message: 'Starting...' });
-      expect(onUpdate).toHaveBeenNthCalledWith(2, { status: 'processing', message: 'Analyzing...' });
-      expect(onUpdate).toHaveBeenNthCalledWith(3, { status: 'completed', message: 'Analysis complete' });
+      expect(onUpdate).toHaveBeenNthCalledWith(1, expect.objectContaining({ status: 'processing', message: 'Starting...' }));
+      expect(onUpdate).toHaveBeenNthCalledWith(2, expect.objectContaining({ status: 'processing', message: 'Analyzing...' }));
+      expect(onUpdate).toHaveBeenNthCalledWith(3, expect.objectContaining({ status: 'completed', message: 'Analysis complete' }));
 
-      global.setTimeout.mockRestore();
+      jest.useRealTimers();
     });
 
     test('handles polling error', async () => {
@@ -249,7 +285,8 @@ describe('analysisService', () => {
 
       const onUpdate = jest.fn();
 
-      await analysisService.pollAnalysisStatus('test-analysis-id', onUpdate);
+      analysisService.pollAnalysisStatus('test-analysis-id', onUpdate);
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(onUpdate).toHaveBeenCalledWith({
         status: 'error',

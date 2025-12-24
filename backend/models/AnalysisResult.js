@@ -24,28 +24,6 @@ class AnalysisResult {
     this.updatedAt = data.updatedAt || new Date();
   }
 
-  // Create a new analysis result
-  static async create(data) {
-    try {
-      const db = getFirestore();
-      const analysisResult = new AnalysisResult(data);
-      
-      const docRef = await db.collection('analysisResults').add({
-        ...analysisResult,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      return {
-        id: docRef.id,
-        ...analysisResult
-      };
-    } catch (error) {
-      console.error('Error creating analysis result:', error);
-      throw error;
-    }
-  }
-
   // Get analysis result by ID
   static async getById(id) {
     try {

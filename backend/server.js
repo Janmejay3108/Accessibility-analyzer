@@ -25,19 +25,45 @@ try {
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for React app
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false, // Disable COOP to prevent popup issues
+  crossOriginResourcePolicy: false // Disable CORP for better compatibility
 })); // Security headers
 
 // CORS configuration for production
+const parseAllowedOrigins = (value) => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+};
+
+const productionAllowedOrigins = (() => {
+  const fromEnv = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+  if (fromEnv.length > 0) return fromEnv;
+
+  return [
+    process.env.FRONTEND_URL,
+    process.env.RAILWAY_STATIC_URL,
+    process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : undefined,
+    /\.railway\.app$/
+  ].filter(Boolean);
+})();
+
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? productionAllowedOrigins
+  : ['http://localhost:3001', 'http://localhost:3000'];
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-        process.env.FRONTEND_URL,
-        process.env.RAILWAY_STATIC_URL,
-        `https://${process.env.RAILWAY_STATIC_URL}`,
-        /\.railway\.app$/
-      ]
-    : ['http://localhost:3001', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.some((allowed) => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    });
+    return callback(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

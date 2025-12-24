@@ -3,6 +3,7 @@ FROM node:18-alpine
 
 # Install dependencies needed for Playwright
 RUN apk add --no-cache \
+    curl \
     chromium \
     nss \
     freetype \

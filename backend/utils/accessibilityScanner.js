@@ -1,15 +1,14 @@
 const { chromium } = require('playwright');
 const axeCore = require('axe-core');
-const fs = require('fs');
-const path = require('path');
 
 class AccessibilityScanner {
   constructor(options = {}) {
     this.options = {
-      timeout: options.timeout || 45000, // 45 seconds default (more reasonable)
+      timeout: options.timeout || 120000, // 2 minutes for complex sites
       waitForSelector: options.waitForSelector || 'body',
       viewport: options.viewport || { width: 1280, height: 720 },
-      userAgent: options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      stealthMode: options.stealthMode !== false, // Enable stealth mode by default
       ...options
     };
     this.browser = null;
@@ -23,6 +22,7 @@ class AccessibilityScanner {
     try {
       console.log('🚀 Launching browser...');
       console.log('Chromium executable path:', process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'default');
+      console.log('Environment variable value:', JSON.stringify(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH));
 
       const launchOptions = {
         headless: true,
@@ -32,17 +32,43 @@ class AccessibilityScanner {
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
-          '--no-zygote',
           '--disable-gpu',
           '--disable-web-security',
           '--disable-features=VizDisplayCompositor',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
-          '--single-process',
           '--disable-extensions',
           '--disable-software-rasterizer',
-          '--disable-background-networking'
+          '--disable-background-networking',
+          '--disable-site-isolation-trials',
+          '--disable-features=CrossOriginOpenerPolicy',
+          '--disable-features=CrossOriginEmbedderPolicy',
+          '--disable-blink-features=AutomationControlled',
+          '--allow-running-insecure-content',
+          '--ignore-certificate-errors',
+          '--ignore-ssl-errors',
+          '--ignore-certificate-errors-spki-list',
+          '--disable-ipc-flooding-protection',
+          // Additional args for enterprise websites
+          '--disable-features=IsolateOrigins',
+          '--disable-features=site-per-process',
+          '--disable-web-security',
+          '--disable-features=BlockInsecurePrivateNetworkRequests',
+          // Enhanced stealth mode arguments
+          '--disable-blink-features=AutomationControlled',
+          '--exclude-switches=enable-automation',
+          '--disable-default-apps',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-component-update',
+          '--disable-domain-reliability',
+          '--disable-sync',
+          '--disable-plugins-discovery',
+          '--disable-preconnect',
+          '--no-default-browser-check',
+          '--no-pings',
+          '--disable-prompt-on-repost',
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
         ]
       };
 
@@ -67,11 +93,92 @@ class AccessibilityScanner {
       // Set timeout for page operations
       this.page.setDefaultTimeout(this.options.timeout);
 
+      // Enhanced stealth mode setup
+      if (this.options.stealthMode) {
+        await this.setupStealthMode();
+      }
+
+      // Add error handlers to prevent premature closure
+      this.page.on('error', (error) => {
+        console.warn('Page error (non-fatal):', error.message);
+      });
+
+      this.page.on('pageerror', (error) => {
+        console.warn('Page script error (non-fatal):', error.message);
+      });
+
       console.log('✅ Browser initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize browser:', error);
       throw new Error(`Browser initialization failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Setup stealth mode to avoid bot detection
+   */
+  async setupStealthMode() {
+    try {
+      console.log('🥷 Setting up stealth mode...');
+      
+      // Override webdriver property
+      await this.page.addInitScript(() => {
+        // Remove webdriver property
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined,
+        });
+        
+        // Override plugins property
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+        
+        // Override languages property
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en'],
+        });
+        
+        // Override chrome property
+        window.chrome = {
+          runtime: {},
+        };
+        
+        // Override permissions
+        const permissions = window.navigator.permissions;
+        const originalQuery = permissions && permissions.query ? permissions.query.bind(permissions) : null;
+        if (originalQuery) {
+          permissions.query = (parameters) => {
+            if (parameters && parameters.name === 'notifications') {
+              const state = typeof Notification !== 'undefined' && Notification.permission
+                ? Notification.permission
+                : 'denied';
+              return Promise.resolve({ state });
+            }
+            return originalQuery(parameters);
+          };
+        }
+      });
+      
+      // Set additional headers
+      await this.page.setExtraHTTPHeaders({
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+      });
+      
+      console.log('✅ Stealth mode configured');
+    } catch (error) {
+      console.warn('⚠️ Stealth mode setup failed:', error.message);
     }
   }
 
@@ -82,44 +189,137 @@ class AccessibilityScanner {
     try {
       console.log(`🌐 Navigating to: ${url}`);
 
+      // Check if browser and page are still valid
+      if (!this.browser || !this.page || this.page.isClosed()) {
+        throw new Error('Browser or page has been closed unexpectedly');
+      }
+
       // Validate URL format
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         throw new Error('Only HTTP and HTTPS URLs are supported');
       }
 
+      // Add random delay to appear more human-like
+      await this.page.waitForTimeout(Math.random() * 2000 + 1000);
+      
       // Navigate to the page with multiple fallback strategies
       let response;
+      let navigationSuccess = false;
+
+      // Strategy 1: Try networkidle (best for most sites)
       try {
-        // First attempt: Wait for network idle
+        console.log('📡 Attempting navigation with networkidle...');
         response = await this.page.goto(url, {
           waitUntil: 'networkidle',
           timeout: this.options.timeout
         });
+        navigationSuccess = true;
+        console.log('✅ Navigation successful with networkidle');
       } catch (error) {
-        console.log('⚠️ Network idle failed, trying domcontentloaded...');
+        console.log('⚠️ Network idle failed:', error.message.substring(0, 100));
+      }
+
+      // Strategy 2: Try domcontentloaded (faster, good for complex sites)
+      if (!navigationSuccess) {
         try {
-          // Second attempt: Wait for DOM content loaded
+          console.log('📡 Attempting navigation with domcontentloaded...');
           response = await this.page.goto(url, {
             waitUntil: 'domcontentloaded',
             timeout: this.options.timeout
           });
+          navigationSuccess = true;
+          console.log('✅ Navigation successful with domcontentloaded');
+          // Give extra time for JS to execute
+          await this.page.waitForTimeout(3000);
         } catch (error2) {
-          console.log('⚠️ DOM content loaded failed, trying load...');
-          // Third attempt: Wait for basic load
+          console.log('⚠️ DOM content loaded failed:', error2.message.substring(0, 100));
+        }
+      }
+
+      // Strategy 3: Try basic load (most permissive)
+      if (!navigationSuccess) {
+        try {
+          console.log('📡 Attempting navigation with load...');
           response = await this.page.goto(url, {
             waitUntil: 'load',
             timeout: this.options.timeout
           });
+          navigationSuccess = true;
+          console.log('✅ Navigation successful with load');
+          // Give extra time for JS to execute
+          await this.page.waitForTimeout(5000);
+        } catch (error3) {
+          console.log('⚠️ Load failed:', error3.message.substring(0, 100));
         }
       }
 
-      if (!response) {
-        throw new Error('Failed to load page - no response received');
+      // Strategy 4: Last resort - just navigate without waiting
+      if (!navigationSuccess) {
+        try {
+          console.log('📡 Last resort: navigating without wait condition...');
+          response = await this.page.goto(url, {
+            waitUntil: 'commit',
+            timeout: this.options.timeout
+          });
+          // Wait for page to have some content
+          await this.page.waitForFunction(() => {
+            return document.body && document.body.innerHTML.length > 100;
+          }, { timeout: 30000 });
+          navigationSuccess = true;
+          console.log('✅ Navigation successful with commit');
+        } catch (error4) {
+          console.log('❌ All navigation strategies failed');
+        }
       }
 
-      if (!response.ok()) {
-        throw new Error(`HTTP ${response.status()}: ${response.statusText()}`);
+      if (!navigationSuccess || !response) {
+        throw new Error('Failed to load page after trying all navigation strategies. The website may be blocking automated access or experiencing issues.');
+      }
+
+      // Check response status
+      const status = response.status();
+      if (status >= 400) {
+        if (status === 403) {
+          console.log('🚫 Access forbidden detected. Attempting alternative approach...');
+          
+          // Try with different user agent and headers for enterprise sites
+          await this.page.setExtraHTTPHeaders({
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache'
+          });
+          
+          // Add random delay
+          await this.page.waitForTimeout(Math.random() * 3000 + 2000);
+          
+          // Try again with modified headers
+          try {
+            response = await this.page.goto(url, {
+              waitUntil: 'domcontentloaded',
+              timeout: this.options.timeout
+            });
+            
+            if (response.status() >= 400) {
+              throw new Error(`Access Forbidden (${response.status()}): The website is blocking automated access. This is common with enterprise sites that have bot protection.`);
+            }
+            
+            console.log('✅ Alternative approach successful!');
+          } catch (retryError) {
+            throw new Error(`Access Forbidden (403): The website is blocking automated access. This is common with enterprise sites that have bot protection.`);
+          }
+        } else if (status === 404) {
+          throw new Error(`Page Not Found (404): The URL does not exist or has been moved.`);
+        } else if (status === 503) {
+          throw new Error(`Service Unavailable (503): The website is temporarily down or overloaded.`);
+        } else {
+          throw new Error(`HTTP ${status}: ${response.statusText()}`);
+        }
       }
 
       // Enhanced waiting strategy for complex sites like YouTube
@@ -134,6 +334,19 @@ class AccessibilityScanner {
       };
     } catch (error) {
       console.error('❌ Failed to navigate to URL:', error);
+
+      // Handle specific COOP/COEP errors
+      if (error.message.includes('Cross-Origin-Opener-Policy') ||
+          error.message.includes('Cross-Origin-Embedder-Policy') ||
+          error.message.includes('window.closed')) {
+        throw new Error('Website is blocking automated access due to security policies (COOP/COEP). This is common with sites that have strict security headers.');
+      }
+
+      // Handle timeout errors
+      if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+        throw new Error('Website took too long to respond. This could be due to slow loading times or the site blocking automated access.');
+      }
+
       throw new Error(`Navigation failed: ${error.message}`);
     }
   }
@@ -152,6 +365,9 @@ class AccessibilityScanner {
       } else if (domain.includes('linkedin.com')) {
         console.log('💼 Detected LinkedIn - using enhanced loading strategy...');
         await this.waitForLinkedIn();
+      } else if (domain.includes('keysight.com')) {
+        console.log('📡 Detected Keysight - using enterprise loading strategy...');
+        await this.waitForKeysight();
       } else {
         // Default waiting strategy
         await this.waitForDefaultSite();
@@ -220,6 +436,45 @@ class AccessibilityScanner {
         return;
       } catch (error) {
         console.log(`⚠️ LinkedIn selector ${selector} not found, trying next...`);
+      }
+    }
+  }
+
+  /**
+   * Keysight-specific waiting strategy
+   */
+  async waitForKeysight() {
+    const selectors = [
+      'main',
+      '.main-content',
+      '[role="main"]',
+      'header',
+      'nav',
+      'body'
+    ];
+
+    for (const selector of selectors) {
+      try {
+        await this.page.waitForSelector(selector, {
+          timeout: 10000,
+          state: 'attached'
+        });
+        console.log(`✅ Keysight element found: ${selector}`);
+        
+        // Additional wait for dynamic content
+        await this.page.waitForTimeout(3000);
+        
+        // Wait for potential lazy loading
+        await this.page.waitForFunction(() => {
+          return document.readyState === 'complete' &&
+                 (!window.jQuery || window.jQuery.active === 0);
+        }, { timeout: 10000 }).catch(() => {
+          console.log('⚠️ jQuery check timeout, continuing...');
+        });
+        
+        return;
+      } catch (error) {
+        console.log(`⚠️ Keysight selector ${selector} not found, trying next...`);
       }
     }
   }
@@ -752,10 +1007,9 @@ class AccessibilityScanner {
 
       return finalResults;
     } catch (error) {
-      throw error;
-    } finally {
-      // Always cleanup
+      // Cleanup on error
       await this.cleanup();
+      throw error;
     }
   }
 }

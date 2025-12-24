@@ -98,7 +98,7 @@ const AnalysisHistory = () => {
             Please sign in to view your analysis history and track your accessibility testing progress.
           </p>
           <Link
-            to="/auth"
+            to="/"
             className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Sign In

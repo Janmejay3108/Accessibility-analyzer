@@ -9,7 +9,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { analysisService } from '../../services/api/analysisService';
 import AnalysisResults from '../../components/analysis/AnalysisResults';
-import StatusIndicator from '../../components/common/StatusIndicator';
 import Loading from '../../components/common/Loading';
 import { NetworkError, NotFoundError } from '../../components/common/ErrorMessage';
 import { useToast } from '../../components/common/Toast';

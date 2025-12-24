@@ -43,24 +43,17 @@ class ScanningService {
       const scannerOptions = this.buildScannerOptions(analysisRequest.settings);
       scanner = new AccessibilityScanner(scannerOptions);
 
-      // Perform the scan with timeout wrapper
+      // Perform the scan
       console.log(`🔍 Starting accessibility scan for: ${analysisRequest.url}`);
 
-      // Create a timeout promise that rejects after a certain time
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Analysis timeout: The website took too long to respond or may be blocking automated access'));
-        }, scannerOptions.timeout + 10000); // Add 10 seconds buffer to scanner timeout
+      // Run the scan directly (scanner has its own timeout handling)
+      const scanResults = await scanner.scan(analysisRequest.url, {
+        captureScreenshot: analysisRequest.settings?.captureScreenshot || false,
+        axeOptions: analysisRequest.settings?.axeOptions || {}
       });
 
-      // Race between scan and timeout
-      const scanResults = await Promise.race([
-        scanner.scan(analysisRequest.url, {
-          captureScreenshot: analysisRequest.settings?.captureScreenshot || false,
-          axeOptions: analysisRequest.settings?.axeOptions || {}
-        }),
-        timeoutPromise
-      ]);
+      // Cleanup scanner after successful scan
+      await scanner.cleanup();
 
       // Process and structure the results
       const processedResults = this.processResults(scanResults, analysisRequest);
@@ -157,10 +150,11 @@ class ScanningService {
    */
   buildScannerOptions(settings = {}) {
     return {
-      timeout: settings.timeout || 45000, // 45 seconds - more reasonable timeout
+      timeout: settings.timeout || 120000, // 2 minutes for complex enterprise sites
       viewport: settings.viewport || { width: 1280, height: 720 },
       waitForSelector: settings.waitForSelector || 'body',
-      userAgent: settings.userAgent || undefined
+      userAgent: settings.userAgent || undefined,
+      stealthMode: true // Enable stealth mode for enterprise sites
     };
   }
 

@@ -135,6 +135,7 @@ const Layout = ({ children }) => {
                 {/* Mobile menu button */}
                 <button
                   type="button"
+                  aria-label="Open main menu"
                   className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-200"
                   onClick={() => setSidebarOpen(true)}
                 >
