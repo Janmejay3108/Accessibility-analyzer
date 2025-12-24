@@ -27,9 +27,21 @@ function App() {
                 <Route path="/*" element={
                   <Layout>
                     <Routes>
-                      <Route path="/home" element={<Home />} />
-                      <Route path="/analysis" element={<AnalysisHistory />} />
-                      <Route path="/analysis/:id" element={<Analysis />} />
+                      <Route path="/home" element={
+                        <ProtectedRoute>
+                          <Home />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/analysis" element={
+                        <ProtectedRoute>
+                          <AnalysisHistory />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/analysis/:id" element={
+                        <ProtectedRoute>
+                          <Analysis />
+                        </ProtectedRoute>
+                      } />
                       <Route path="/dashboard" element={
                         <ProtectedRoute>
                           <Dashboard />

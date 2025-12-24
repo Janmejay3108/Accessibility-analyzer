@@ -1,33 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  EyeIcon,
-  EyeSlashIcon,
-  ArrowRightIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import BrandLogo from '../../components/common/BrandLogo';
-import ForgotPassword from '../../components/auth/ForgotPassword';
 import Footer from '../../components/common/Footer';
 import './Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, signInWithGoogle, error: authError, loading: authLoading, isAuthenticated } = useAuth();
-  
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    name: ''
-  });
+  const { signInWithGoogle, error: authError, loading: authLoading, isAuthenticated } = useAuth();
   const [error, setError] = useState('');
   const [lastUsedMethod, setLastUsedMethod] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -45,47 +31,6 @@ const Login = () => {
     }
   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    if (error) setError('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      if (!isLogin) {
-        // Registration validation
-        if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
-          return;
-        }
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters long');
-          return;
-        }
-        await signUp(formData.email, formData.password, formData.name);
-      } else {
-        await signIn(formData.email, formData.password);
-      }
-
-      // Store last used method
-      localStorage.setItem('lastAuthMethod', 'email');
-      
-      // Redirect to intended page or home
-      const from = location.state?.from?.pathname || '/home';
-      navigate(from, { replace: true });
-
-    } catch (err) {
-      setError(err.message || 'Authentication failed. Please try again.');
-    }
-  };
-
   const handleGoogleAuth = async () => {
     try {
       setError('');
@@ -102,11 +47,6 @@ const Login = () => {
     }
   };
 
-  const handleContinueWithoutLogin = () => {
-    // Navigate to home page without authentication
-    navigate('/home', { replace: true });
-  };
-
   return (
     <div className="min-h-screen flex login-container">
       {/* Left Panel - Authentication */}
@@ -117,22 +57,16 @@ const Login = () => {
         </div>
 
         {/* Main Content */}
-        {showForgotPassword ? (
-          <ForgotPassword onBack={() => setShowForgotPassword(false)} />
-        ) : (
-          <>
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-white mb-2">
-                {isLogin ? 'Log in' : 'Create account'}
-              </h1>
-              <p className="text-gray-400">
-                {isLogin
-                  ? 'Welcome back! Please sign in to continue.'
-                  : 'Join us to save your analysis and track progress.'
-                }
-              </p>
-            </div>
+        <>
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Log in
+            </h1>
+            <p className="text-gray-400">
+              Sign in with Google to continue.
+            </p>
+          </div>
 
         {/* Google Sign In */}
         <button
@@ -154,175 +88,33 @@ const Login = () => {
           )}
         </button>
 
+        {/* Error Display */}
+        {(error || authError) && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-3 mb-6">
+            <p className="text-sm text-red-200">{error || authError}</p>
+          </div>
+        )}
+
         {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-600" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-900 text-gray-400">OR</span>
+            <span className="px-2 bg-gray-900 text-gray-400">Google sign-in required</span>
           </div>
         </div>
 
         {/* Email/Password Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 login-form">
-          {/* Error Display */}
-          {(error || authError) && (
-            <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
-              <p className="text-sm text-red-200">{error || authError}</p>
-            </div>
-          )}
-
-          {/* Name Field (Sign Up Only) */}
-          {!isLogin && (
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-                Full Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required={!isLogin}
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 login-input"
-                placeholder="Enter your full name"
-              />
-            </div>
-          )}
-
-          {/* Email Field */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-              Email
-              {lastUsedMethod === 'email' && (
-                <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded">
-                  Last used
-                </span>
-              )}
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={formData.email}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-              placeholder="Enter your email"
-            />
-          </div>
-
-          {/* Password Field */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                Password
-              </label>
-              {isLogin && (
-                <button
-                  type="button"
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-200"
-                  onClick={() => setShowForgotPassword(true)}
-                >
-                  Forgot password?
-                </button>
-              )}
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={formData.password}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 pr-12"
-                placeholder="Enter your password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors duration-200"
-              >
-                {showPassword ? (
-                  <EyeSlashIcon className="h-5 w-5" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirm Password Field (Sign Up Only) */}
-          {!isLogin && (
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required={!isLogin}
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
-                placeholder="Confirm your password"
-              />
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={authLoading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {authLoading ? 'Processing...' : (isLogin ? 'Log in' : 'Create account')}
-          </button>
-        </form>
-
-        {/* Toggle Login/Signup */}
-        <div className="mt-6 mb-8 text-center">
-          <span className="text-gray-400">
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-              setFormData({ email: '', password: '', confirmPassword: '', name: '' });
-            }}
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200"
-          >
-            {isLogin ? 'Create your account' : 'Log in'}
-          </button>
-        </div>
-        </>
-        )}
+        {null}
 
         {/* Footer */}
         <Footer variant="login" />
+        </>
       </div>
 
       {/* Mobile Continue Without Login */}
-      <div className="lg:hidden bg-gray-800 px-8 py-6 border-t border-gray-700">
-        <div className="text-center">
-          <button
-            onClick={handleContinueWithoutLogin}
-            className="group bg-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 flex items-center space-x-2 mx-auto"
-          >
-            <span>Continue as Guest</span>
-            <ArrowRightIcon className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
-          </button>
-          <p className="text-gray-400 text-sm mt-2">
-            Limited features without login
-          </p>
-        </div>
-      </div>
+      {null}
 
       {/* Desktop Right Panel - Continue Without Login */}
       <div className="hidden lg:flex flex-1 gradient-background floating-elements relative overflow-hidden login-right-panel">
@@ -333,7 +125,7 @@ const Login = () => {
         <div className="relative z-10 flex flex-col justify-center items-center text-center px-12 py-16">
           <div className="max-w-md">
             <h2 className="text-3xl font-bold text-white mb-6">
-              Continue Without Login
+              Sign In Required
             </h2>
             
             {/* Warning Message */}
@@ -342,23 +134,14 @@ const Login = () => {
                 <ExclamationTriangleIcon className="h-6 w-6 text-yellow-300 flex-shrink-0 mt-0.5" />
                 <div className="text-left">
                   <p className="text-white font-medium mb-2">
-                    Limited Experience
+                    Demo Mode
                   </p>
                   <p className="text-white/90 text-sm">
-                    Your analysis and progress will not be saved if you proceed without logging in. 
-                    You'll miss out on history tracking, saved reports, and personalized insights.
+                    Please sign in with Google to run accessibility scans.
                   </p>
                 </div>
               </div>
             </div>
-
-            <button
-              onClick={handleContinueWithoutLogin}
-              className="group bg-white/20 backdrop-blur-sm text-white px-8 py-4 rounded-lg font-medium hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all duration-200 flex items-center space-x-3 login-button"
-            >
-              <span>Continue as Guest</span>
-              <ArrowRightIcon className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-            </button>
           </div>
         </div>
       </div>

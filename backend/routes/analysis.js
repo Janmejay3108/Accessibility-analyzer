@@ -15,7 +15,7 @@ const {
 } = require('../controllers/analysisController');
 
 // Create new analysis request
-router.post('/', optionalAuth, createAnalysisRequest);
+router.post('/', verifyFirebaseToken, createAnalysisRequest);
 
 // Get user's analysis requests (requires authentication)
 router.get('/user/requests', verifyFirebaseToken, getUserAnalysisRequests);
@@ -27,21 +27,21 @@ router.get('/public/recent', getRecentAnalyses);
 router.get('/dashboard/analytics', verifyFirebaseToken, getAnalytics);
 
 // Get analysis request by ID
-router.get('/:id', optionalAuth, getAnalysisRequest);
+router.get('/:id', verifyFirebaseToken, getAnalysisRequest);
 
 // Get analysis result by analysis request ID
-router.get('/:id/result', optionalAuth, getAnalysisResult);
+router.get('/:id/result', verifyFirebaseToken, getAnalysisResult);
 
 // Get scan status for analysis request
-router.get('/:id/status', optionalAuth, getScanStatus);
+router.get('/:id/status', verifyFirebaseToken, getScanStatus);
 
 // Trigger manual scan for analysis request
-router.post('/:id/scan', optionalAuth, triggerScan);
+router.post('/:id/scan', verifyFirebaseToken, triggerScan);
 
 // Cancel active scan for analysis request
-router.delete('/:id/scan', optionalAuth, cancelScan);
+router.delete('/:id/scan', verifyFirebaseToken, cancelScan);
 
 // Generate AI fix for specific violation
-router.post('/:id/violations/:violationIndex/ai-fix', optionalAuth, generateAIFix);
+router.post('/:id/violations/:violationIndex/ai-fix', verifyFirebaseToken, generateAIFix);
 
 module.exports = router;

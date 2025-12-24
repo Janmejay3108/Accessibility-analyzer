@@ -17,6 +17,24 @@ const AnalysisResults = ({ result, analysis }) => {
   const [aiFixResults, setAiFixResults] = useState({});
   const [loadingAIFix, setLoadingAIFix] = useState({});
 
+  const renderMessageWithGithubLink = (message) => {
+    if (!message) return null;
+    const githubUrlMatch = String(message).match(/https?:\/\/github\.com\/[\w.-]+\/[\w.-]+/i);
+    if (!githubUrlMatch) return message;
+
+    const githubUrl = githubUrlMatch[0];
+    const parts = String(message).split(githubUrl);
+    return (
+      <>
+        {parts[0]}
+        <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="underline">
+          {githubUrl}
+        </a>
+        {parts[1]}
+      </>
+    );
+  };
+
   const formatDuration = (duration) => {
     if (duration === undefined || duration === null) return 'N/A';
     const ms = Number(duration);
@@ -300,7 +318,7 @@ const AnalysisResults = ({ result, analysis }) => {
                               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                                 <div className="flex items-center space-x-2">
                                   <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
-                                  <span className="text-sm text-red-700">{aiFixResults[index].message}</span>
+                                  <span className="text-sm text-red-700">{renderMessageWithGithubLink(aiFixResults[index].message)}</span>
                                 </div>
                                 <button
                                   onClick={() => setAiFixResults(prev => ({ ...prev, [index]: null }))}

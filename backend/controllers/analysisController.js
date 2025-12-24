@@ -3,11 +3,58 @@ const AnalysisResult = require('../models/AnalysisResult');
 const scanningService = require('../utils/scanningService');
 const geminiService = require('../services/geminiService');
 const { validateUrl, validateAnalysisSettings, validatePagination } = require('../utils/validation');
+const { getFirestore, admin } = require('../config/firebase-admin');
+
+const DEMO_QUOTA_MESSAGE = 'Demo: Each account is limited to 5 total AI requests. For unlimited use, get the repo from GitHub(https://github.com/Janmejay3108/Accessibility-analyzer) and use your own API keys.';
+const DEMO_QUOTA_LIMIT = 5;
+
+const consumeDemoQuota = async (uid) => {
+  const db = getFirestore();
+  const usageRef = db.collection('usage').doc(uid);
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(usageRef);
+      const data = snap.exists ? snap.data() : {};
+      const currentCount = Number(data.totalAiRequests || 0);
+
+      if (currentCount >= DEMO_QUOTA_LIMIT) {
+        const err = new Error('QUOTA_EXCEEDED');
+        err.code = 'QUOTA_EXCEEDED';
+        throw err;
+      }
+
+      const createdAt = data.createdAt || admin.firestore.FieldValue.serverTimestamp();
+      transaction.set(
+        usageRef,
+        {
+          totalAiRequests: currentCount + 1,
+          createdAt,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        },
+        { merge: true }
+      );
+    });
+  } catch (error) {
+    if (error && error.code === 'QUOTA_EXCEEDED') {
+      throw error;
+    }
+    console.error('Error updating demo quota:', error);
+    throw new Error('QUOTA_UPDATE_FAILED');
+  }
+};
 
 // Create a new analysis request
 const createAnalysisRequest = async (req, res) => {
   try {
     const { url, settings } = req.body;
+
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
 
     // Validate URL
     const urlValidation = validateUrl(url);
@@ -29,10 +76,28 @@ const createAnalysisRequest = async (req, res) => {
       });
     }
 
+    try {
+      await consumeDemoQuota(req.user.uid);
+    } catch (quotaError) {
+      if (quotaError && quotaError.code === 'QUOTA_EXCEEDED') {
+        return res.status(429).json({
+          error: 'Quota Exceeded',
+          code: 'QUOTA_EXCEEDED',
+          limit: DEMO_QUOTA_LIMIT,
+          message: DEMO_QUOTA_MESSAGE
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to process request'
+      });
+    }
+
     // Create analysis request
     const analysisRequest = await AnalysisRequest.create({
       url: urlValidation.normalizedUrl,
-      userId: req.user?.uid || null,
+      userId: req.user.uid,
       settings: settingsValidation.settings,
       status: 'pending'
     });
@@ -74,7 +139,7 @@ const getAnalysisRequest = async (req, res) => {
     }
 
     // Check if user has permission to view this request
-    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You do not have permission to view this analysis request'
@@ -109,7 +174,7 @@ const getAnalysisResult = async (req, res) => {
       });
     }
 
-    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You do not have permission to view this analysis result'
@@ -271,7 +336,7 @@ const getScanStatus = async (req, res) => {
     }
 
     // Check permissions
-    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You do not have permission to view this scan status'
@@ -319,7 +384,7 @@ const triggerScan = async (req, res) => {
     }
 
     // Check permissions
-    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You do not have permission to trigger this scan'
@@ -332,6 +397,24 @@ const triggerScan = async (req, res) => {
       return res.status(409).json({
         error: 'Conflict',
         message: 'Scan is already in progress'
+      });
+    }
+
+    try {
+      await consumeDemoQuota(req.user.uid);
+    } catch (quotaError) {
+      if (quotaError && quotaError.code === 'QUOTA_EXCEEDED') {
+        return res.status(429).json({
+          error: 'Quota Exceeded',
+          code: 'QUOTA_EXCEEDED',
+          limit: DEMO_QUOTA_LIMIT,
+          message: DEMO_QUOTA_MESSAGE
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to process request'
       });
     }
 
@@ -385,7 +468,7 @@ const cancelScan = async (req, res) => {
     }
 
     // Check permissions
-    if (analysisRequest.userId && req.user?.uid !== analysisRequest.userId) {
+    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You do not have permission to cancel this scan'
@@ -466,6 +549,24 @@ const generateAIFix = async (req, res) => {
       wcagLevel: analysisResult.summary?.wcagLevel || 'AA',
       analysisDate: analysisResult.createdAt
     };
+
+    try {
+      await consumeDemoQuota(req.user.uid);
+    } catch (quotaError) {
+      if (quotaError && quotaError.code === 'QUOTA_EXCEEDED') {
+        return res.status(429).json({
+          error: 'Quota Exceeded',
+          code: 'QUOTA_EXCEEDED',
+          limit: DEMO_QUOTA_LIMIT,
+          message: DEMO_QUOTA_MESSAGE
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to process request'
+      });
+    }
 
     // Generate AI fix
     const aiFix = await geminiService.generateAccessibilityFix(violation, context);

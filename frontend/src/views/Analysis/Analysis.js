@@ -100,7 +100,7 @@ const Analysis = () => {
       showSuccess('Analysis restarted successfully');
       startStatusPolling();
     } catch (err) {
-      const errorMessage = 'Failed to restart analysis. Please try again.';
+      const errorMessage = err.response?.data?.message || 'Failed to restart analysis. Please try again.';
       setError(errorMessage);
       showError(errorMessage);
     }

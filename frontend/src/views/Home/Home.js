@@ -37,11 +37,11 @@ const Home = () => {
             <div className="flex items-center justify-center space-x-3 mb-4">
               <ChartBarIcon className="h-6 w-6 text-blue-600" />
               <h3 className="text-lg font-semibold text-blue-900">
-                Get More from Your Analysis
+                Sign In Required
               </h3>
             </div>
             <p className="text-blue-700 mb-4 text-center">
-              Sign up to save your analysis results, track progress over time, and access advanced features.
+              Please sign in with Google to run accessibility scans.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
@@ -49,13 +49,7 @@ const Home = () => {
                 className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
               >
                 <UserPlusIcon className="h-5 w-5 mr-2" />
-                Sign Up Free
-              </Link>
-              <Link
-                to="/"
-                className="inline-flex items-center justify-center px-6 py-3 bg-white text-blue-600 font-medium rounded-lg border border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
-              >
-                Sign In
+                Sign In with Google
               </Link>
             </div>
           </div>

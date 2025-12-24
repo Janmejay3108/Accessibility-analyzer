@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { ExclamationCircleIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
 import { analysisService } from '../../services/api/analysisService';
 import { useToast } from '../common/Toast';
+import { useAuth } from '../../contexts/AuthContext';
 
 const UrlInputForm = ({ onSubmit }) => {
   const { showSuccess, showError } = useToast();
+  const { isAuthenticated } = useAuth();
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +41,13 @@ const UrlInputForm = ({ onSubmit }) => {
     e.preventDefault();
     setError('');
 
+    if (!isAuthenticated) {
+      const message = 'Please sign in with Google to run accessibility scans.';
+      setError(message);
+      showError(message);
+      return;
+    }
+
     // Validate URL
     const urlError = validateUrl(url);
     if (urlError) {
@@ -69,8 +79,10 @@ const UrlInputForm = ({ onSubmit }) => {
       }
     } catch (err) {
       console.error('Analysis creation error:', err);
+
       const errorMessage = err.response?.data?.message ||
         'Failed to start analysis. Please check the URL and try again.';
+
       setError(errorMessage);
       showError(errorMessage);
     } finally {
@@ -82,6 +94,50 @@ const UrlInputForm = ({ onSubmit }) => {
     setUrl(e.target.value);
     if (error) setError(''); // Clear error when user starts typing
   };
+
+  const renderErrorMessage = () => {
+    if (!error) return null;
+
+    const githubUrlMatch = error.match(/https?:\/\/github\.com\/[\w.-]+\/[\w.-]+/i);
+    if (!githubUrlMatch) {
+      return error;
+    }
+
+    const githubUrl = githubUrlMatch[0];
+    const parts = error.split(githubUrl);
+    return (
+      <>
+        {parts[0]}
+        <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="underline">
+          {githubUrl}
+        </a>
+        {parts[1]}
+      </>
+    );
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+          <p className="text-blue-800 font-medium">
+            Sign in required
+          </p>
+          <p className="text-blue-700 text-sm mt-1">
+            Please sign in with Google to run accessibility scans.
+          </p>
+          <div className="mt-4">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center px-5 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+            >
+              Sign in with Google
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -172,7 +228,7 @@ const UrlInputForm = ({ onSubmit }) => {
       {error && (
         <p className="mt-4 text-sm text-red-500 text-center flex items-center justify-center">
           <ExclamationCircleIcon className="h-4 w-4 mr-2" />
-          {error}
+          {renderErrorMessage()}
         </p>
       )}
     </div>
