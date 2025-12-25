@@ -36,12 +36,15 @@ const parseAllowedOrigins = (value) => {
   if (!value) return [];
   return value
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/$/, '')) // Remove trailing slashes
     .filter(Boolean);
 };
 
 const productionAllowedOrigins = (() => {
   const fromEnv = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+  // Log the origins for debugging (visible in Cloud Run logs)
+  console.log('configured allowed origins:', fromEnv);
+
   if (fromEnv.length > 0) return fromEnv;
 
   return [
@@ -56,13 +59,24 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? productionAllowedOrigins
   : ['http://localhost:3001', 'http://localhost:3000'];
 
+console.log('✅ Final Allowed Origins:', allowedOrigins);
+
 const corsOptions = {
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
     const isAllowed = allowedOrigins.some((allowed) => {
-      if (allowed instanceof RegExp) return allowed.test(origin);
-      return allowed === origin;
+      if (allowed instanceof RegExp) return allowed.test(normalizedOrigin);
+      return allowed === normalizedOrigin;
     });
+
+    if (!isAllowed) {
+      console.warn(`⚠️ CORS blocked request from origin: ${origin}`);
+    }
+
     return callback(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
   },
   credentials: true,
