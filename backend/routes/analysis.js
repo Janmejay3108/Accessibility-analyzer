@@ -8,6 +8,7 @@ const {
   getUserAnalysisRequests,
   getRecentAnalyses,
   getAnalytics,
+  getUsage,
   getScanStatus,
   triggerScan,
   cancelScan,
@@ -25,6 +26,9 @@ router.get('/public/recent', getRecentAnalyses);
 
 // Get analytics data (requires authentication for user-specific data)
 router.get('/dashboard/analytics', verifyFirebaseToken, getAnalytics);
+
+// Get demo usage quota (requires authentication)
+router.get('/usage', verifyFirebaseToken, getUsage);
 
 // Get analysis request by ID
 router.get('/:id', verifyFirebaseToken, getAnalysisRequest);

@@ -5,18 +5,19 @@ const geminiService = require('../services/geminiService');
 const { validateUrl, validateAnalysisSettings, validatePagination } = require('../utils/validation');
 const { getFirestore, admin } = require('../config/firebase-admin');
 
-const DEMO_QUOTA_MESSAGE = 'Demo: Each account is limited to 5 total AI requests. For unlimited use, get the repo from GitHub(https://github.com/Janmejay3108/Accessibility-analyzer) and use your own API keys.';
+const DEMO_QUOTA_MESSAGE = 'Demo: Each account is limited to 5 analyses. For unlimited use, run the open-source project locally from GitHub: https://github.com/Janmejay3108/Accessibility-analyzer';
 const DEMO_QUOTA_LIMIT = 5;
+const inMemoryUsage = new Map();
 
 const consumeDemoQuota = async (uid) => {
-  const db = getFirestore();
-  const usageRef = db.collection('usage').doc(uid);
-
   try {
+    const db = getFirestore();
+    const usageRef = db.collection('usage').doc(uid);
+
     await db.runTransaction(async (transaction) => {
       const snap = await transaction.get(usageRef);
       const data = snap.exists ? snap.data() : {};
-      const currentCount = Number(data.totalAiRequests || 0);
+      const currentCount = Number((data.analysisRuns ?? data.totalAiRequests) || 0);
 
       if (currentCount >= DEMO_QUOTA_LIMIT) {
         const err = new Error('QUOTA_EXCEEDED');
@@ -28,7 +29,7 @@ const consumeDemoQuota = async (uid) => {
       transaction.set(
         usageRef,
         {
-          totalAiRequests: currentCount + 1,
+          analysisRuns: currentCount + 1,
           createdAt,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         },
@@ -39,8 +40,64 @@ const consumeDemoQuota = async (uid) => {
     if (error && error.code === 'QUOTA_EXCEEDED') {
       throw error;
     }
-    console.error('Error updating demo quota:', error);
-    throw new Error('QUOTA_UPDATE_FAILED');
+
+    const currentCount = Number(inMemoryUsage.get(uid) || 0);
+    if (currentCount >= DEMO_QUOTA_LIMIT) {
+      const err = new Error('QUOTA_EXCEEDED');
+      err.code = 'QUOTA_EXCEEDED';
+      throw err;
+    }
+    inMemoryUsage.set(uid, currentCount + 1);
+  }
+};
+
+const getDemoUsage = async (uid) => {
+  try {
+    const db = getFirestore();
+    const usageRef = db.collection('usage').doc(uid);
+    const snap = await usageRef.get();
+    const data = snap.exists ? snap.data() : {};
+    const used = Number((data.analysisRuns ?? data.totalAiRequests) || 0);
+    return {
+      used,
+      limit: DEMO_QUOTA_LIMIT
+    };
+  } catch (error) {
+    const used = Number(inMemoryUsage.get(uid) || 0);
+    return {
+      used,
+      limit: DEMO_QUOTA_LIMIT
+    };
+  }
+};
+
+const getUsage = async (req, res) => {
+  try {
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
+    const usage = await getDemoUsage(req.user.uid);
+    const remaining = Math.max(usage.limit - usage.used, 0);
+
+    return res.json({
+      message: 'Usage retrieved successfully',
+      data: {
+        used: usage.used,
+        limit: usage.limit,
+        remaining,
+        finished: usage.used >= usage.limit
+      }
+    });
+  } catch (error) {
+    console.error('Error getting usage:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve usage'
+    });
   }
 };
 
@@ -124,86 +181,6 @@ const createAnalysisRequest = async (req, res) => {
   }
 };
 
-// Get analysis request by ID
-const getAnalysisRequest = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const analysisRequest = await AnalysisRequest.getById(id);
-    
-    if (!analysisRequest) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Analysis request not found'
-      });
-    }
-
-    // Check if user has permission to view this request
-    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'You do not have permission to view this analysis request'
-      });
-    }
-
-    res.json({
-      message: 'Analysis request retrieved successfully',
-      data: analysisRequest
-    });
-  } catch (error) {
-    console.error('Error getting analysis request:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve analysis request'
-    });
-  }
-};
-
-// Get analysis result by analysis request ID
-const getAnalysisResult = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // First check if the analysis request exists and user has permission
-    const analysisRequest = await AnalysisRequest.getById(id);
-    
-    if (!analysisRequest) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Analysis request not found'
-      });
-    }
-
-    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'You do not have permission to view this analysis result'
-      });
-    }
-
-    // Get the analysis result
-    const analysisResult = await AnalysisResult.getByAnalysisRequestId(id);
-    
-    if (!analysisResult) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Analysis result not found'
-      });
-    }
-
-    res.json({
-      message: 'Analysis result retrieved successfully',
-      data: analysisResult
-    });
-  } catch (error) {
-    console.error('Error getting analysis result:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve analysis result'
-    });
-  }
-};
-
 // Get user's analysis requests
 const getUserAnalysisRequests = async (req, res) => {
   try {
@@ -232,13 +209,69 @@ const getUserAnalysisRequests = async (req, res) => {
       offset
     );
 
+    let total = null;
+    try {
+      const db = getFirestore();
+      const totalSnap = await db
+        .collection('analysisRequests')
+        .where('userId', '==', req.user.uid)
+        .count()
+        .get();
+      total = totalSnap.data().count;
+    } catch (countErr) {
+      total = null;
+    }
+
+    let enriched = analysisRequests;
+    try {
+      const db = getFirestore();
+      const ids = analysisRequests.map(r => r.id).filter(Boolean);
+
+      if (ids.length > 0) {
+        const resultByRequestId = new Map();
+
+        for (let i = 0; i < ids.length; i += 10) {
+          const chunk = ids.slice(i, i + 10);
+          const resultsSnap = await db
+            .collection('analysisResults')
+            .where('analysisRequestId', 'in', chunk)
+            .get();
+
+          resultsSnap.docs.forEach(doc => {
+            const data = doc.data();
+            if (data && data.analysisRequestId) {
+              resultByRequestId.set(data.analysisRequestId, { id: doc.id, ...data });
+            }
+          });
+        }
+
+        enriched = analysisRequests.map(reqItem => {
+          const linkedResult = resultByRequestId.get(reqItem.id);
+          const summary = linkedResult?.summary;
+          const complianceScore = summary?.complianceScore;
+          return {
+            ...reqItem,
+            resultSummary: summary,
+            complianceScore: complianceScore
+          };
+        });
+      }
+    } catch (enrichErr) {
+      enriched = analysisRequests;
+    }
+
     res.json({
       message: 'User analysis requests retrieved successfully',
-      data: analysisRequests,
+      data: {
+        analyses: enriched,
+        total: total ?? enriched.length,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      },
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        count: analysisRequests.length
+        count: enriched.length
       }
     });
   } catch (error) {
@@ -254,7 +287,7 @@ const getUserAnalysisRequests = async (req, res) => {
 const getRecentAnalyses = async (req, res) => {
   try {
     const { limit = 20 } = req.query;
-    
+
     const recentAnalyses = await AnalysisRequest.getRecent(parseInt(limit));
 
     res.json({
@@ -270,64 +303,18 @@ const getRecentAnalyses = async (req, res) => {
   }
 };
 
-// Get analytics data (user-specific only)
-const getAnalytics = async (req, res) => {
-  try {
-    // Require authentication for dashboard analytics
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required to view analytics'
-      });
-    }
-
-    const { dateRange } = req.query;
-    let parsedDateRange = null;
-
-    if (dateRange) {
-      try {
-        parsedDateRange = JSON.parse(dateRange);
-        if (parsedDateRange.start) {
-          parsedDateRange.start = new Date(parsedDateRange.start);
-        }
-        if (parsedDateRange.end) {
-          parsedDateRange.end = new Date(parsedDateRange.end);
-        }
-      } catch (error) {
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Invalid date range format'
-        });
-      }
-    }
-
-    // Always pass the authenticated user's ID - never null
-    const analytics = await AnalysisResult.getAnalytics(
-      req.user.uid,
-      parsedDateRange
-    );
-
-    res.json({
-      message: 'Analytics data retrieved successfully',
-      data: analytics
-    });
-  } catch (error) {
-    console.error('Error getting analytics:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve analytics data'
-    });
-  }
-};
-
-// Get scan status for an analysis request
-const getScanStatus = async (req, res) => {
+const getAnalysisRequest = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get analysis request to check permissions
-    const analysisRequest = await AnalysisRequest.getById(id);
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
 
+    const analysisRequest = await AnalysisRequest.getById(id);
     if (!analysisRequest) {
       return res.status(404).json({
         error: 'Not Found',
@@ -335,47 +322,153 @@ const getScanStatus = async (req, res) => {
       });
     }
 
-    // Check permissions
-    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
+    if (analysisRequest.userId && analysisRequest.userId !== req.user.uid) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'You do not have permission to view this scan status'
+        message: 'You do not have permission to access this analysis request'
       });
     }
 
-    // Get scan status from scanning service
+    return res.json({
+      message: 'Analysis request retrieved successfully',
+      data: analysisRequest
+    });
+  } catch (error) {
+    console.error('Error getting analysis request:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve analysis request'
+    });
+  }
+};
+
+const getAnalysisResult = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
+    const analysisRequest = await AnalysisRequest.getById(id);
+    if (!analysisRequest) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Analysis request not found'
+      });
+    }
+
+    if (analysisRequest.userId && analysisRequest.userId !== req.user.uid) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to access this analysis result'
+      });
+    }
+
+    const analysisResult = await AnalysisResult.getByAnalysisRequestId(id);
+    if (!analysisResult) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Analysis result not found'
+      });
+    }
+
+    return res.json({
+      message: 'Analysis result retrieved successfully',
+      data: analysisResult
+    });
+  } catch (error) {
+    console.error('Error getting analysis result:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve analysis result'
+    });
+  }
+};
+
+const getAnalytics = async (req, res) => {
+  try {
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
+    const analytics = await AnalysisResult.getAnalytics(req.user.uid);
+
+    return res.json({
+      message: 'Analytics retrieved successfully',
+      data: analytics
+    });
+  } catch (error) {
+    console.error('Error getting analytics:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to retrieve analytics'
+    });
+  }
+};
+
+const getScanStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
+    const analysisRequest = await AnalysisRequest.getById(id);
+    if (!analysisRequest) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Analysis request not found'
+      });
+    }
+
+    if (analysisRequest.userId && analysisRequest.userId !== req.user.uid) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to access this analysis request'
+      });
+    }
+
     const scanStatus = scanningService.getScanStatus(id);
 
-    res.json({
+    return res.json({
       message: 'Scan status retrieved successfully',
       data: {
-        analysisRequest: {
-          id: analysisRequest.id,
-          url: analysisRequest.url,
-          status: analysisRequest.status,
-          requestTimestamp: analysisRequest.requestTimestamp,
-          completedTimestamp: analysisRequest.completedTimestamp
-        },
-        scanStatus: scanStatus
+        analysisRequest,
+        scanStatus
       }
     });
   } catch (error) {
     console.error('Error getting scan status:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to retrieve scan status'
     });
   }
 };
 
-// Trigger manual scan for an existing analysis request
 const triggerScan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get analysis request
-    const analysisRequest = await AnalysisRequest.getById(id);
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
 
+    const analysisRequest = await AnalysisRequest.getById(id);
     if (!analysisRequest) {
       return res.status(404).json({
         error: 'Not Found',
@@ -383,83 +476,57 @@ const triggerScan = async (req, res) => {
       });
     }
 
-    // Check permissions
-    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
+    if (analysisRequest.userId && analysisRequest.userId !== req.user.uid) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'You do not have permission to trigger this scan'
+        message: 'You do not have permission to trigger this analysis'
       });
     }
 
-    // Check if already processing
-    const scanStatus = scanningService.getScanStatus(id);
-    if (scanStatus.status === 'processing') {
+    const currentScan = scanningService.getScanStatus(id);
+    if (currentScan.status === 'processing') {
       return res.status(409).json({
         error: 'Conflict',
-        message: 'Scan is already in progress'
+        message: 'Analysis request is already being processed'
       });
     }
 
-    try {
-      await consumeDemoQuota(req.user.uid);
-    } catch (quotaError) {
-      if (quotaError && quotaError.code === 'QUOTA_EXCEEDED') {
-        return res.status(429).json({
-          error: 'Quota Exceeded',
-          code: 'QUOTA_EXCEEDED',
-          limit: DEMO_QUOTA_LIMIT,
-          message: DEMO_QUOTA_MESSAGE
-        });
-      }
-
-      return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to process request'
-      });
-    }
-
-    // Reset status to pending
-    await AnalysisRequest.update(id, {
-      status: 'pending',
-      metadata: {
-        ...analysisRequest.metadata,
-        manualTrigger: new Date()
-      }
-    });
-
-    // Trigger scan
-    setImmediate(async () => {
+    (async () => {
       try {
         await scanningService.processAnalysisRequest(id);
       } catch (error) {
-        console.error(`Manual scan failed for request ${id}:`, error);
+        console.error(`Background scan failed for request ${id}:`, error);
       }
-    });
+    })();
 
-    res.json({
+    return res.status(202).json({
       message: 'Scan triggered successfully',
       data: {
-        id: id,
-        status: 'pending'
+        id,
+        status: 'processing'
       }
     });
   } catch (error) {
     console.error('Error triggering scan:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to trigger scan'
     });
   }
 };
 
-// Cancel an active scan
 const cancelScan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get analysis request
-    const analysisRequest = await AnalysisRequest.getById(id);
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
 
+    const analysisRequest = await AnalysisRequest.getById(id);
     if (!analysisRequest) {
       return res.status(404).json({
         error: 'Not Found',
@@ -467,34 +534,32 @@ const cancelScan = async (req, res) => {
       });
     }
 
-    // Check permissions
-    if (!analysisRequest.userId || req.user?.uid !== analysisRequest.userId) {
+    if (analysisRequest.userId && analysisRequest.userId !== req.user.uid) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'You do not have permission to cancel this scan'
+        message: 'You do not have permission to cancel this analysis'
       });
     }
 
-    // Cancel the scan
     const cancelled = await scanningService.cancelScan(id);
 
     if (cancelled) {
-      res.json({
+      return res.json({
         message: 'Scan cancelled successfully',
         data: {
-          id: id,
+          id,
           status: 'cancelled'
         }
       });
-    } else {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'No active scan found to cancel'
-      });
     }
+
+    return res.status(404).json({
+      error: 'Not Found',
+      message: 'No active scan found to cancel'
+    });
   } catch (error) {
     console.error('Error cancelling scan:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to cancel scan'
     });
@@ -550,24 +615,6 @@ const generateAIFix = async (req, res) => {
       analysisDate: analysisResult.createdAt
     };
 
-    try {
-      await consumeDemoQuota(req.user.uid);
-    } catch (quotaError) {
-      if (quotaError && quotaError.code === 'QUOTA_EXCEEDED') {
-        return res.status(429).json({
-          error: 'Quota Exceeded',
-          code: 'QUOTA_EXCEEDED',
-          limit: DEMO_QUOTA_LIMIT,
-          message: DEMO_QUOTA_MESSAGE
-        });
-      }
-
-      return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to process request'
-      });
-    }
-
     // Generate AI fix
     const aiFix = await geminiService.generateAccessibilityFix(violation, context);
 
@@ -584,7 +631,6 @@ const generateAIFix = async (req, res) => {
         aiFix: aiFix
       }
     });
-
   } catch (error) {
     console.error('Error generating AI fix:', error);
 
@@ -610,6 +656,7 @@ module.exports = {
   getUserAnalysisRequests,
   getRecentAnalyses,
   getAnalytics,
+  getUsage,
   getScanStatus,
   triggerScan,
   cancelScan,

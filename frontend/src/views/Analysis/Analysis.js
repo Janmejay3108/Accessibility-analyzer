@@ -1,336 +1,443 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowPathIcon,
+  ArrowLeftIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
+  InformationCircleIcon,
   ClockIcon,
-  DocumentTextIcon
+  GlobeAltIcon,
+  SparklesIcon,
+  ClipboardDocumentIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import { analysisService } from '../../services/api/analysisService';
-import AnalysisResults from '../../components/analysis/AnalysisResults';
+import { useAuth } from '../../contexts/AuthContext';
 import Loading from '../../components/common/Loading';
-import { NetworkError, NotFoundError } from '../../components/common/ErrorMessage';
-import { useToast } from '../../components/common/Toast';
 
 const Analysis = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { showError, showSuccess } = useToast();
+  const { isAuthenticated } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [result, setResult] = useState(null);
-  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [errorType, setErrorType] = useState('generic');
+  const [expandedViolations, setExpandedViolations] = useState({});
+  const [generatingFix, setGeneratingFix] = useState({});
+  const [aiFixes, setAiFixes] = useState({});
 
-  useEffect(() => {
-    if (id) {
-      loadAnalysis();
-      startStatusPolling();
-    }
-  }, [id]);
-
-  const loadAnalysis = async () => {
+  const loadAnalysisData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      setErrorType('generic');
 
-      const response = await analysisService.getAnalysis(id);
-      setAnalysis(response.data);
+      // Fetch analysis request details
+      const analysisResponse = await analysisService.getAnalysis(id);
+      setAnalysis(analysisResponse.data);
 
-      // Try to load results if analysis is complete
-      if (response.data.status === 'completed') {
-        await loadResults();
+      // If completed, fetch results
+      if (analysisResponse.data?.status === 'completed') {
+        try {
+          const resultResponse = await analysisService.getAnalysisResult(id);
+          setResult(resultResponse.data);
+        } catch (resultErr) {
+          console.error('Error fetching results:', resultErr);
+        }
       }
     } catch (err) {
       console.error('Error loading analysis:', err);
-
-      if (err.response?.status === 404) {
-        setErrorType('notFound');
-        setError('Analysis not found. It may have been deleted or the URL is incorrect.');
-      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
-        setErrorType('network');
-        setError('Unable to connect to the server. Please check your internet connection.');
-      } else {
-        setErrorType('generic');
-        setError(err.response?.data?.message || 'Failed to load analysis. Please try again.');
-      }
-
-      showError(error || 'Failed to load analysis');
+      setError('Failed to load analysis. Please try again.');
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadAnalysisData();
+    }
+  }, [id, loadAnalysisData]);
+
+  // Poll for status if processing
+  useEffect(() => {
+    if (analysis?.status === 'processing' || analysis?.status === 'pending') {
+      const interval = setInterval(async () => {
+        try {
+          const statusResponse = await analysisService.getAnalysisStatus(id);
+          const status = statusResponse.data?.analysisRequest?.status || statusResponse.data?.status;
+          
+          if (status === 'completed' || status === 'error' || status === 'failed') {
+            clearInterval(interval);
+            loadAnalysisData();
+          } else {
+            setAnalysis(prev => ({ ...prev, status }));
+          }
+        } catch (err) {
+          console.error('Error polling status:', err);
+        }
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [analysis?.status, id, loadAnalysisData]);
+
+  const toggleViolation = (index) => {
+    setExpandedViolations(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
   };
 
-  const loadResults = async () => {
+  const handleGenerateAIFix = async (violationIndex) => {
     try {
-      const response = await analysisService.getAnalysisResult(id);
-      setResult(response.data);
+      setGeneratingFix(prev => ({ ...prev, [violationIndex]: true }));
+      const response = await analysisService.generateAIFix(id, violationIndex);
+      setAiFixes(prev => ({ ...prev, [violationIndex]: response.data }));
     } catch (err) {
-      console.error('Error loading results:', err);
-      // Don't set error here as analysis might still be processing
+      console.error('Error generating AI fix:', err);
+    } finally {
+      setGeneratingFix(prev => ({ ...prev, [violationIndex]: false }));
     }
   };
 
-  const startStatusPolling = () => {
-    analysisService.pollAnalysisStatus(id, (statusUpdate) => {
-      setStatus(statusUpdate);
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
 
-      if (statusUpdate.status === 'completed') {
-        loadResults();
-      } else if (statusUpdate.status === 'failed' || statusUpdate.status === 'error') {
-        // Use user-friendly error message if available
-        const errorMessage = statusUpdate.userFriendlyMessage ||
-                            statusUpdate.error ||
-                            'Analysis failed. Please try again.';
-        setError(errorMessage);
-        setErrorType('analysis');
+  const getImpactColor = (impact) => {
+    switch (impact) {
+      case 'critical':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'serious':
+        return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'moderate':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'minor':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 90) return 'text-emerald-600';
+    if (score >= 70) return 'text-amber-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBg = (score) => {
+    if (score >= 90) return 'bg-emerald-50 border-emerald-200';
+    if (score >= 70) return 'bg-amber-50 border-amber-200';
+    return 'bg-red-50 border-red-200';
+  };
+
+  const toDateSafe = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof value === 'object') {
+      if (typeof value.toDate === 'function') {
+        const d = value.toDate();
+        return d instanceof Date && !isNaN(d.getTime()) ? d : null;
       }
-    });
-  };
-
-  const handleRetryAnalysis = async () => {
-    try {
-      setError('');
-      setErrorType('generic');
-      setStatus({ status: 'processing', message: 'Restarting analysis...' });
-      await analysisService.triggerScan(id);
-      showSuccess('Analysis restarted successfully');
-      startStatusPolling();
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to restart analysis. Please try again.';
-      setError(errorMessage);
-      showError(errorMessage);
+      if (typeof value.seconds === 'number') {
+        const d = new Date(value.seconds * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (typeof value._seconds === 'number') {
+        const d = new Date(value._seconds * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
     }
+    return null;
   };
 
-  const getStatusIcon = () => {
-    if (!status) return <ClockIcon className="h-5 w-5 text-gray-400" />;
-
-    switch (status.status) {
-      case 'completed':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case 'failed':
-      case 'error':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
-      case 'processing':
-        return <ArrowPathIcon className="h-5 w-5 text-blue-500 animate-spin" />;
-      default:
-        return <ClockIcon className="h-5 w-5 text-gray-400" />;
-    }
+  const formatDate = (dateValue) => {
+    const d = toDateSafe(dateValue);
+    if (!d) return 'N/A';
+    return d.toLocaleString();
   };
 
-  const getStatusMessage = () => {
-    if (!status) return 'Loading...';
-
-    switch (status.status) {
-      case 'completed':
-        return 'Analysis completed successfully';
-      case 'failed':
-      case 'error':
-        return status.userFriendlyMessage || status.error || 'Analysis failed';
-      case 'processing':
-        return status.message || 'Analyzing website...';
-      default:
-        return status.message || 'Preparing analysis...';
-    }
-  };
-
-  // If no ID is provided, show error message
-  if (!id) {
+  if (!isAuthenticated) {
     return (
-      <div className="max-w-2xl mx-auto text-center">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8">
-          <ExclamationTriangleIcon className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-yellow-900 mb-4">No Analysis Selected</h2>
-          <p className="text-yellow-800 mb-6">
-            Please select an analysis from your history or start a new one.
-          </p>
-          <div className="space-x-4">
-            <button
-              onClick={() => navigate('/analysis')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              View Analysis History
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Start New Analysis
-            </button>
-          </div>
+      <div className="max-w-lg mx-auto text-center py-12">
+        <div className="card p-8">
+          <h2 className="text-2xl font-semibold text-text-main mb-3">Sign In Required</h2>
+          <p className="text-text-subtle mb-6">Please sign in to view analysis results.</p>
+          <Link to="/" className="btn-primary">Sign In</Link>
         </div>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <Loading
-        size="large"
-        message="Loading analysis..."
-        className="min-h-64"
-      />
-    );
+    return <Loading size="large" message="Loading analysis..." className="min-h-64" />;
   }
 
-  if (error && !analysis) {
+  if (error) {
     return (
-      <div className="max-w-2xl mx-auto">
-        {errorType === 'notFound' ? (
-          <NotFoundError
-            resource="analysis"
-            onGoBack={() => navigate('/')}
-          />
-        ) : errorType === 'network' ? (
-          <NetworkError
-            onRetry={loadAnalysis}
-            onDismiss={() => setError('')}
-          />
-        ) : (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-red-900 mb-2">Error Loading Analysis</h2>
-            <p className="text-red-700 mb-4">{error}</p>
-            <div className="space-x-3">
-              <button
-                onClick={loadAnalysis}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => navigate('/')}
-                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Start New Analysis
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="max-w-lg mx-auto text-center py-12">
+        <div className="card p-8">
+          <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-text-main mb-3">Error Loading Analysis</h2>
+          <p className="text-text-subtle mb-6">{error}</p>
+          <Link to="/analysis" className="btn-primary">Back to History</Link>
+        </div>
       </div>
     );
   }
 
+  if (!analysis) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-12">
+        <div className="card p-8">
+          <h2 className="text-xl font-semibold text-text-main mb-3">Analysis Not Found</h2>
+          <p className="text-text-subtle mb-6">The requested analysis could not be found.</p>
+          <Link to="/analysis" className="btn-primary">Back to History</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Processing/Pending State
+  if (analysis.status === 'processing' || analysis.status === 'pending') {
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <div className="card p-8 text-center">
+          <div className="w-16 h-16 bg-brand-light rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ClockIcon className="h-8 w-8 text-brand animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-semibold text-text-main mb-3">Analysis in Progress</h2>
+          <p className="text-text-subtle mb-6">
+            We're scanning <span className="font-medium text-text-main">{analysis.url}</span> for accessibility issues.
+            This may take a few moments.
+          </p>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (analysis.status === 'error' || analysis.status === 'failed' || analysis.status === 'cancelled') {
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <Link to="/analysis" className="inline-flex items-center gap-2 text-text-subtle hover:text-text-main mb-6">
+          <ArrowLeftIcon className="h-4 w-4" />
+          Back to History
+        </Link>
+        <div className="card p-8 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-semibold text-text-main mb-3">
+            {analysis.status === 'cancelled' ? 'Analysis Cancelled' : 'Analysis Failed'}
+          </h2>
+          <p className="text-text-subtle mb-4">
+            {analysis.metadata?.userFriendlyMessage || 'We encountered an error while analyzing this URL.'}
+          </p>
+          <p className="text-sm text-text-muted mb-6">{analysis.url}</p>
+          <Link to="/home" className="btn-primary">Try Another URL</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Completed State - Show Results
+  const violations = result?.axeCoreResults?.violations || result?.scanResults?.violations || [];
+  const passes = result?.axeCoreResults?.passes || result?.scanResults?.passes || [];
+  const complianceScore =
+    result?.summary?.complianceScore ??
+    result?.complianceScore ??
+    analysis?.complianceScore ??
+    0;
+
   return (
     <div className="space-y-6">
-      {/* Analysis Header */}
-      {analysis && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Accessibility Analysis
-              </h1>
-              <p className="text-gray-600 break-all">{analysis.url}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">
-                Started: {new Date(analysis.createdAt).toLocaleString()}
-              </p>
-              {analysis.settings && (
-                <p className="text-sm text-gray-500">
-                  WCAG Level: {analysis.settings.wcagLevel || 'AA'}
-                </p>
-              )}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/analysis" className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+            <ArrowLeftIcon className="h-5 w-5 text-text-subtle" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-semibold text-text-main">Analysis Results</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <GlobeAltIcon className="h-4 w-4 text-text-muted" />
+              <a href={analysis.url} target="_blank" rel="noopener noreferrer" 
+                 className="text-sm text-brand hover:underline truncate max-w-md">
+                {analysis.url}
+              </a>
             </div>
           </div>
+        </div>
+        <div className="text-sm text-text-muted">
+          {formatDate(analysis.createdAt || analysis.requestTimestamp)}
+        </div>
+      </div>
 
-          {/* Status Indicator */}
-          <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-md">
-            {getStatusIcon()}
-            <span className="text-sm font-medium text-gray-700">
-              {getStatusMessage()}
-            </span>
-            {(status?.status === 'failed' || status?.status === 'error') && (
-              <button
-                onClick={handleRetryAnalysis}
-                className="ml-auto text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-              >
-                Retry Analysis
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Analysis Results */}
-      {result ? (
-        <AnalysisResults result={result} analysis={analysis} />
-      ) : status?.status === 'processing' ? (
-        <div className="bg-white shadow rounded-lg p-8">
-          <div className="text-center">
-            <ArrowPathIcon className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Analysis in Progress
-            </h3>
-            <p className="text-gray-600 mb-4">
-              We're scanning your website for accessibility issues. This typically takes 15-30 seconds.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                <strong>What we're checking:</strong>
-              </p>
-              <ul className="text-sm text-blue-700 mt-2 space-y-1">
-                <li>• WCAG 2.1 compliance violations</li>
-                <li>• Color contrast and accessibility</li>
-                <li>• Keyboard navigation support</li>
-                <li>• Screen reader compatibility</li>
-                <li>• Form and input accessibility</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      ) : (status?.status === 'failed' || status?.status === 'error') ? (
-        <div className="bg-white shadow rounded-lg p-8">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Analysis Failed
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {status.userFriendlyMessage || status.error || 'We encountered an issue while analyzing this website.'}
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-red-800">
-                <strong>Common reasons for analysis failures:</strong>
-              </p>
-              <ul className="text-sm text-red-700 mt-2 space-y-1">
-                <li>• Website is blocking automated access</li>
-                <li>• Slow loading times or network issues</li>
-                <li>• Website requires authentication</li>
-                <li>• Server is temporarily unavailable</li>
-                <li>• Strict security policies (CSP)</li>
-              </ul>
-            </div>
-            <div className="space-x-3">
-              <button
-                onClick={handleRetryAnalysis}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => navigate('/')}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Analyze Different URL
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white shadow rounded-lg p-8 text-center">
-          <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Waiting for Results
-          </h3>
-          <p className="text-gray-600">
-            Analysis results will appear here once the scan is complete.
+      {/* Score Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className={`card p-6 border-2 ${getScoreBg(complianceScore)}`}>
+          <p className="text-sm font-medium text-text-subtle mb-1">Compliance Score</p>
+          <p className={`text-4xl font-bold ${getScoreColor(complianceScore)}`}>
+            {Math.round(complianceScore)}%
           </p>
+        </div>
+        <div className="card p-6">
+          <p className="text-sm font-medium text-text-subtle mb-1">Issues Found</p>
+          <p className="text-4xl font-bold text-red-600">{violations.length}</p>
+        </div>
+        <div className="card p-6">
+          <p className="text-sm font-medium text-text-subtle mb-1">Tests Passed</p>
+          <p className="text-4xl font-bold text-emerald-600">{passes.length}</p>
+        </div>
+        <div className="card p-6">
+          <p className="text-sm font-medium text-text-subtle mb-1">Total Elements</p>
+          <p className="text-4xl font-bold text-text-main">
+            {violations.reduce((sum, v) => sum + (v.nodes?.length || 0), 0)}
+          </p>
+        </div>
+      </div>
+
+      {/* Violations List */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-light">
+          <h2 className="text-lg font-semibold text-text-main">
+            Accessibility Issues ({violations.length})
+          </h2>
+        </div>
+
+        {violations.length > 0 ? (
+          <div className="divide-y divide-border-light">
+            {violations.map((violation, index) => (
+              <div key={index} className="px-6 py-4">
+                <div 
+                  className="flex items-start justify-between cursor-pointer"
+                  onClick={() => toggleViolation(index)}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-lg border ${getImpactColor(violation.impact)}`}>
+                        {violation.impact}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {violation.nodes?.length || 0} element(s)
+                      </span>
+                    </div>
+                    <h3 className="font-medium text-text-main">{violation.id}</h3>
+                    <p className="text-sm text-text-subtle mt-1">{violation.description}</p>
+                  </div>
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    {expandedViolations[index] ? (
+                      <ChevronUpIcon className="h-5 w-5 text-text-subtle" />
+                    ) : (
+                      <ChevronDownIcon className="h-5 w-5 text-text-subtle" />
+                    )}
+                  </button>
+                </div>
+
+                {expandedViolations[index] && (
+                  <div className="mt-4 space-y-4">
+                    {/* Help text */}
+                    {violation.help && (
+                      <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-xl">
+                        <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-blue-700">{violation.help}</p>
+                      </div>
+                    )}
+
+                    {/* Affected elements */}
+                    {violation.nodes?.slice(0, 5).map((node, nodeIndex) => (
+                      <div key={nodeIndex} className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs font-medium text-text-subtle mb-2">Element {nodeIndex + 1}</p>
+                        <code className="text-xs text-text-main break-all block p-2 bg-white rounded-lg border border-border-light">
+                          {node.html || node.target?.join(' > ')}
+                        </code>
+                        {node.failureSummary && (
+                          <p className="text-xs text-text-subtle mt-2">{node.failureSummary}</p>
+                        )}
+                      </div>
+                    ))}
+                    {violation.nodes?.length > 5 && (
+                      <p className="text-xs text-text-muted">
+                        ...and {violation.nodes.length - 5} more elements
+                      </p>
+                    )}
+
+                    {/* AI Fix Button */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGenerateAIFix(index);
+                        }}
+                        disabled={generatingFix[index]}
+                        className="btn-secondary text-sm flex items-center gap-2"
+                      >
+                        <SparklesIcon className="h-4 w-4" />
+                        {generatingFix[index] ? 'Generating...' : 'Get AI Fix'}
+                      </button>
+                    </div>
+
+                    {/* AI Fix Result */}
+                    {aiFixes[index] && (
+                      <div className="p-4 bg-brand-light rounded-xl">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-brand">AI-Generated Fix</p>
+                          <button
+                            onClick={() => copyToClipboard(JSON.stringify(aiFixes[index].aiFix ?? aiFixes[index], null, 2))}
+                            className="p-1.5 hover:bg-white/50 rounded-lg transition-colors"
+                          >
+                            <ClipboardDocumentIcon className="h-4 w-4 text-brand" />
+                          </button>
+                        </div>
+                        <pre className="text-xs text-text-main whitespace-pre-wrap bg-white p-3 rounded-lg">
+                          {JSON.stringify(aiFixes[index].aiFix ?? aiFixes[index], null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-6 py-12 text-center">
+            <CheckCircleIcon className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-text-main mb-2">No Issues Found!</h3>
+            <p className="text-text-subtle">
+              Great job! This page passed all accessibility checks.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Passed Tests Summary */}
+      {passes.length > 0 && (
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold text-text-main mb-4">
+            Passed Tests ({passes.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {passes.slice(0, 12).map((pass, index) => (
+              <div key={index} className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50">
+                <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <span className="text-sm text-emerald-700 truncate">{pass.id || pass}</span>
+              </div>
+            ))}
+          </div>
+          {passes.length > 12 && (
+            <p className="text-sm text-text-muted mt-3">
+              ...and {passes.length - 12} more passed tests
+            </p>
+          )}
         </div>
       )}
     </div>

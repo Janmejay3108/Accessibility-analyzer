@@ -270,6 +270,32 @@ class AnalysisResult {
           analytics.performanceMetrics.averageScanTime = totalScanTime / scanTimeCount;
         }
 
+        analytics.totalViolations = analytics.performanceMetrics.totalViolationsFound;
+        analytics.averageScanTime = analytics.performanceMetrics.averageScanTime;
+
+        const wcagBreakdown = {
+          A: { count: 0, averageScore: 0, _scores: [] },
+          AA: { count: 0, averageScore: 0, _scores: [] },
+          AAA: { count: 0, averageScore: 0, _scores: [] }
+        };
+
+        results.forEach(result => {
+          const level = String(result.summary?.wcagLevel || 'AA').toUpperCase();
+          if (wcagBreakdown[level]) {
+            wcagBreakdown[level].count++;
+            wcagBreakdown[level]._scores.push(result.summary?.complianceScore || 0);
+          }
+        });
+
+        Object.values(wcagBreakdown).forEach(levelData => {
+          if (levelData.count > 0) {
+            levelData.averageScore = levelData._scores.reduce((sum, s) => sum + s, 0) / levelData.count;
+          }
+          delete levelData._scores;
+        });
+
+        analytics.wcagBreakdown = wcagBreakdown;
+
         // Get most problematic URLs
         analytics.performanceMetrics.mostProblematicUrls = Object.entries(urlViolationCounts)
           .sort(([,a], [,b]) => b - a)
@@ -289,13 +315,18 @@ class AnalysisResult {
             return dateB - dateA; // Most recent first
           })
           .slice(0, 10) // Limit to 10 most recent
-          .map(result => ({
-            id: result.id,
-            url: result.url,
-            createdAt: result.createdAt,
-            summary: result.summary,
-            analysisRequestId: result.analysisRequestId
-          }));
+          .map(result => {
+            const createdAtDate = result.createdAt?.toDate ? result.createdAt.toDate() : new Date(result.createdAt);
+            const createdAt = !isNaN(createdAtDate.getTime()) ? createdAtDate.toISOString() : null;
+            return {
+              id: result.id,
+              url: result.url,
+              createdAt,
+              summary: result.summary,
+              analysisRequestId: result.analysisRequestId,
+              status: 'completed'
+            };
+          });
       }
 
       return analytics;

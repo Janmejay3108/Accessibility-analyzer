@@ -1,70 +1,175 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-/* Simple, clean design system */
+/* Antigravity.google Design System */
 :root {
-  /* Basic color palette */
-  --primary-color: #3b82f6;
-  --secondary-color: #6b7280;
-  --background-color: #f9fafb;
-  --text-color: #111827;
-  --border-color: #e5e7eb;
+  --surface: #ffffff;
+  --surface-subtle: #F8F9FA;
+  --border: #E5E7EB;
+  --text-main: #1F2937;
+  --text-subtle: #6B7280;
+  --brand: #1A73E8;
 }
 
-/* Base styles */
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   body {
+    @apply bg-surface-subtle text-text-main;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: var(--background-color);
-    color: var(--text-color);
   }
 
-  /* Focus visible for better keyboard navigation */
+  /* Remove default outlines, add custom brand focus ring */
+  *:focus {
+    outline: none;
+  }
+
   *:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+    @apply ring-2 ring-brand ring-offset-2;
+  }
+
+  /* Smooth transitions for interactive elements */
+  button, a, input, select, textarea {
+    @apply transition-all duration-200;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-text-main font-semibold tracking-tight;
+  }
+
+  p {
+    @apply text-text-subtle;
   }
 }
 
-/* Simple component styles */
 @layer components {
-  /* Simple button */
+  /* Pill Button - Primary (Black) */
   .btn-primary {
-    @apply px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200;
+    @apply px-6 py-3 bg-gray-900 text-white font-medium rounded-pill 
+           hover:scale-[1.02] active:scale-[0.98] 
+           focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 
+           transition-all duration-200 ease-spring;
   }
 
-  /* Simple input */
-  .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200;
+  /* Pill Button - Secondary (White with border) */
+  .btn-secondary {
+    @apply px-6 py-3 bg-white text-text-main font-medium rounded-pill 
+           border border-gray-300 
+           hover:bg-gray-50 hover:scale-[1.02] active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 
+           transition-all duration-200 ease-spring;
   }
 
-  /* Simple card */
+  /* Pill Button - Brand (Google Blue) */
+  .btn-brand {
+    @apply px-6 py-3 bg-brand text-white font-medium rounded-pill 
+           hover:bg-brand-hover hover:scale-[1.02] active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 
+           transition-all duration-200 ease-spring;
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    @apply px-4 py-2 text-text-subtle font-medium rounded-xl
+           hover:bg-gray-100 hover:text-text-main
+           focus:outline-none focus:ring-2 focus:ring-gray-200 
+           transition-all duration-200;
+  }
+
+  /* Omnibar Input - The signature search bar */
+  .omnibar {
+    @apply w-full h-14 md:h-16 px-6 bg-white rounded-pill 
+           border border-border shadow-omnibar
+           text-text-main placeholder-text-muted
+           focus:shadow-elevated focus:border-transparent
+           transition-all duration-300;
+  }
+
+  /* Card Component - Antigravity style */
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply bg-white rounded-3xl border border-border-light p-6
+           shadow-soft hover:shadow-medium
+           transition-all duration-300;
   }
-}
 
-/* Simple fade-in animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+  /* Card with elevated hover */
+  .card-elevated {
+    @apply bg-white rounded-3xl border border-border-light p-6
+           shadow-soft hover:shadow-elevated hover:-translate-y-1
+           transition-all duration-300;
   }
-  to {
-    opacity: 1;
+
+  /* Glassmorphism Card */
+  .card-glass {
+    @apply bg-white/80 backdrop-blur-xl rounded-3xl 
+           border border-white/20 p-6
+           shadow-elevated;
+  }
+
+  /* Input Field */
+  .input-field {
+    @apply w-full px-4 py-3 bg-white rounded-xl 
+           border border-border
+           text-text-main placeholder-text-muted
+           focus:border-brand focus:ring-2 focus:ring-brand/20
+           transition-all duration-200;
+  }
+
+  /* Select Field */
+  .select-field {
+    @apply w-full px-4 py-3 bg-white rounded-xl 
+           border border-border
+           text-text-main
+           focus:border-brand focus:ring-2 focus:ring-brand/20
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* Status Dots */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  .status-dot-success { @apply bg-emerald-500; }
+  .status-dot-warning { @apply bg-amber-500; }
+  .status-dot-error { @apply bg-red-500; }
+  .status-dot-info { @apply bg-brand; }
+
+  /* Tag/Badge */
+  .tag {
+    @apply inline-flex items-center px-3 py-1 rounded-pill 
+           text-xs font-medium bg-gray-100 text-text-subtle;
+  }
+
+  /* Link styling */
+  .link {
+    @apply text-brand hover:text-brand-hover underline-offset-2 
+           hover:underline transition-colors duration-200;
   }
 }
 
 @layer utilities {
+  /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  /* Blur utilities for glassmorphism */
+  .blur-gate {
+    @apply backdrop-blur-md bg-surface-subtle/60;
   }
 }

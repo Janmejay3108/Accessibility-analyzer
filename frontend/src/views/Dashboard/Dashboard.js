@@ -5,7 +5,8 @@ import {
   DocumentMagnifyingGlassIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon
+  ClockIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
 import { analysisService } from '../../services/api/analysisService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,6 +18,30 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const toDateSafe = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof value === 'object') {
+      if (typeof value.toDate === 'function') {
+        const d = value.toDate();
+        return d instanceof Date && !isNaN(d.getTime()) ? d : null;
+      }
+      if (typeof value.seconds === 'number') {
+        const d = new Date(value.seconds * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (typeof value._seconds === 'number') {
+        const d = new Date(value._seconds * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     loadDashboardData();
   }, [isAuthenticated]);
@@ -27,23 +52,18 @@ const Dashboard = () => {
       setError('');
 
       if (isAuthenticated) {
-        // Load analytics data for authenticated users
         const analyticsResponse = await analysisService.getDashboardAnalytics();
         setAnalytics(analyticsResponse.data);
 
-        // Load user's recent analyses (using results for consistency with analytics)
         if (analyticsResponse.data && analyticsResponse.data.recentAnalyses) {
           setRecentAnalyses(analyticsResponse.data.recentAnalyses.slice(0, 5));
         } else {
           setRecentAnalyses([]);
         }
       } else {
-        // For unauthenticated users, show public recent analyses
         try {
           const publicAnalysesResponse = await analysisService.getRecentPublicAnalyses(5);
           setRecentAnalyses(publicAnalysesResponse.data || []);
-
-          // Set basic analytics for unauthenticated users
           setAnalytics({
             totalAnalyses: 0,
             averageComplianceScore: 0,
@@ -52,7 +72,6 @@ const Dashboard = () => {
           });
         } catch (publicErr) {
           console.error('Error loading public analyses:', publicErr);
-          // Set empty state if public analyses also fail
           setRecentAnalyses([]);
           setAnalytics({
             totalAnalyses: 0,
@@ -76,140 +95,125 @@ const Dashboard = () => {
   };
 
   const getComplianceColor = (score) => {
-    if (score >= 90) return 'text-green-600 bg-green-100';
-    if (score >= 70) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+    if (score >= 90) return 'text-emerald-600 bg-emerald-50';
+    if (score >= 70) return 'text-amber-600 bg-amber-50';
+    return 'text-red-500 bg-red-50';
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusDot = (status) => {
     switch (status) {
       case 'completed':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+        return <div className="w-2 h-2 rounded-full bg-emerald-500" />;
       case 'processing':
-        return <ClockIcon className="h-5 w-5 text-blue-500" />;
+        return <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />;
+      case 'failed':
       case 'error':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
+        return <div className="w-2 h-2 rounded-full bg-red-500" />;
       default:
-        return <ClockIcon className="h-5 w-5 text-gray-500" />;
+        return <div className="w-2 h-2 rounded-full bg-gray-400" />;
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <ChartBarIcon className="h-8 w-8 text-blue-500 animate-pulse mx-auto mb-4" />
-          <p className="text-gray-600">Loading dashboard...</p>
+          <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <ChartBarIcon className="h-6 w-6 text-text-subtle" />
+          </div>
+          <p className="text-text-subtle">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-semibold text-text-main">Dashboard</h1>
+          <p className="text-text-subtle mt-1">
             {isAuthenticated
               ? "Overview of your accessibility analysis activity"
               : "Overview of recent accessibility analysis activity"}
           </p>
         </div>
-        <Link
-          to="/"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          New Analysis
+        <Link to="/home" className="btn-primary flex items-center gap-2">
+          <span>New Analysis</span>
+          <ArrowRightIcon className="h-4 w-4" />
         </Link>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
-            <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
-            <div className="ml-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          </div>
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {!isAuthenticated && !error && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex">
-            <CheckCircleIcon className="h-5 w-5 text-blue-400" />
-            <div className="ml-3">
-              <p className="text-sm text-blue-800">
-                <Link to="/" className="font-medium underline hover:text-blue-900">
-                  Sign in
-                </Link> to view your personal analytics and track your accessibility analysis history.
-              </p>
-            </div>
-          </div>
+        <div className="bg-brand-light border border-brand/20 rounded-2xl p-4">
+          <p className="text-sm text-brand">
+            <Link to="/" className="font-medium underline">Sign in</Link> to view your personal analytics and track your accessibility analysis history.
+          </p>
         </div>
       )}
 
       {/* Analytics Cards */}
       {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <DocumentMagnifyingGlassIcon className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Analyses</p>
-                <p className="text-2xl font-semibold text-gray-900">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-text-subtle mb-1">Total Analyses</p>
+                <p className="text-3xl font-semibold text-text-main">
                   {analytics.totalAnalyses || 0}
                 </p>
               </div>
+              <div className="w-10 h-10 bg-brand-light rounded-xl flex items-center justify-center">
+                <DocumentMagnifyingGlassIcon className="h-5 w-5 text-brand" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getComplianceColor(analytics.averageComplianceScore || 0)}`}>
-                  <span className="text-sm font-bold">
-                    {Math.round(analytics.averageComplianceScore || 0)}%
-                  </span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Avg. Compliance</p>
-                <p className="text-2xl font-semibold text-gray-900">
+          <div className="card">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-text-subtle mb-1">Avg. Compliance</p>
+                <p className="text-3xl font-semibold text-text-main">
                   {Math.round(analytics.averageComplianceScore || 0)}%
                 </p>
               </div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getComplianceColor(analytics.averageComplianceScore || 0)}`}>
+                <CheckCircleIcon className="h-5 w-5" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <ExclamationTriangleIcon className="h-8 w-8 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Issues</p>
-                <p className="text-2xl font-semibold text-gray-900">
+          <div className="card">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-text-subtle mb-1">Total Issues</p>
+                <p className="text-3xl font-semibold text-text-main">
                   {analytics.totalViolations || 0}
                 </p>
               </div>
+              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <ClockIcon className="h-8 w-8 text-gray-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Avg. Scan Time</p>
-                <p className="text-2xl font-semibold text-gray-900">
+          <div className="card">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-text-subtle mb-1">Avg. Scan Time</p>
+                <p className="text-3xl font-semibold text-text-main">
                   {analytics.averageScanTime ? `${Math.round(analytics.averageScanTime / 1000)}s` : 'N/A'}
                 </p>
+              </div>
+              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                <ClockIcon className="h-5 w-5 text-text-subtle" />
               </div>
             </div>
           </div>
@@ -217,56 +221,58 @@ const Dashboard = () => {
       )}
 
       {/* Recent Analyses */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Your Recent Analyses</h3>
+      <div className="card p-0 overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-light">
+          <h3 className="text-lg font-semibold text-text-main">Recent Analyses</h3>
         </div>
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-border-light">
           {recentAnalyses.length > 0 ? (
             recentAnalyses.map((analysis, index) => (
-              <div key={index} className="px-6 py-4 hover:bg-gray-50">
+              <div key={index} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-3">
-                      {getStatusIcon(analysis.status)}
+                    <div className="flex items-center gap-3">
+                      {getStatusDot(analysis.status)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-text-main truncate">
                           {analysis.url}
                         </p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(analysis.createdAt).toLocaleDateString()} at{' '}
-                          {new Date(analysis.createdAt).toLocaleTimeString()}
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {(() => {
+                            const d = toDateSafe(analysis.createdAt || analysis.completedTimestamp);
+                            if (!d) return 'N/A';
+                            return `${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                          })()}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center gap-3">
                     {analysis.summary?.complianceScore !== undefined && (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getComplianceColor(analysis.summary.complianceScore)}`}>
-                        {Math.round(analysis.summary.complianceScore)}% compliant
+                      <span className={`inline-flex items-center px-3 py-1 rounded-pill text-xs font-medium ${getComplianceColor(analysis.summary.complianceScore)}`}>
+                        {Math.round(analysis.summary.complianceScore)}%
                       </span>
                     )}
                     <Link
                       to={`/analysis/${analysis.analysisRequestId || analysis.id}`}
-                      className="text-blue-600 hover:text-blue-500 text-sm font-medium"
+                      className="text-brand hover:text-brand-hover text-sm font-medium"
                     >
-                      View Report
+                      View →
                     </Link>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="px-6 py-8 text-center">
-              <DocumentMagnifyingGlassIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Recent Analyses</h3>
-              <p className="text-gray-600 mb-4">
+            <div className="px-6 py-12 text-center">
+              <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <DocumentMagnifyingGlassIcon className="h-7 w-7 text-text-subtle" />
+              </div>
+              <h3 className="text-lg font-semibold text-text-main mb-2">No Recent Analyses</h3>
+              <p className="text-text-subtle mb-6">
                 Start analyzing websites to see recent activity here.
               </p>
-              <Link
-                to="/"
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <Link to="/home" className="btn-primary">
                 Start Analysis
               </Link>
             </div>
@@ -276,21 +282,21 @@ const Dashboard = () => {
 
       {/* WCAG Compliance Breakdown */}
       {analytics && analytics.wcagBreakdown && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">WCAG Compliance Breakdown</h3>
+        <div className="card p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-border-light">
+            <h3 className="text-lg font-semibold text-text-main">WCAG Compliance Breakdown</h3>
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {Object.entries(analytics.wcagBreakdown).map(([level, data]) => (
                 <div key={level} className="text-center">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 ${getComplianceColor(data.averageScore || 0)}`}>
-                    <span className="text-lg font-bold">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 ${getComplianceColor(data.averageScore || 0)}`}>
+                    <span className="text-xl font-semibold">
                       {Math.round(data.averageScore || 0)}%
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-gray-900">WCAG {level}</p>
-                  <p className="text-xs text-gray-500">{data.count || 0} analyses</p>
+                  <p className="text-sm font-medium text-text-main">WCAG {level}</p>
+                  <p className="text-xs text-text-muted">{data.count || 0} analyses</p>
                 </div>
               ))}
             </div>
@@ -299,28 +305,32 @@ const Dashboard = () => {
       )}
 
       {/* Quick Actions */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
+      <div className="card p-0 overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-light">
+          <h3 className="text-lg font-semibold text-text-main">Quick Actions</h3>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link
-              to="/"
-              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+              to="/home"
+              className="flex items-center p-5 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors group"
             >
-              <DocumentMagnifyingGlassIcon className="h-8 w-8 text-blue-600 mr-4" />
+              <div className="w-12 h-12 bg-brand-light rounded-xl flex items-center justify-center mr-4 group-hover:scale-105 transition-transform">
+                <DocumentMagnifyingGlassIcon className="h-6 w-6 text-brand" />
+              </div>
               <div>
-                <p className="font-medium text-gray-900">New Analysis</p>
-                <p className="text-sm text-gray-600">Analyze a website for accessibility issues</p>
+                <p className="font-medium text-text-main">New Analysis</p>
+                <p className="text-sm text-text-subtle">Analyze a website for accessibility issues</p>
               </div>
             </Link>
             
-            <div className="flex items-center p-4 border border-gray-200 rounded-lg opacity-50">
-              <ChartBarIcon className="h-8 w-8 text-gray-400 mr-4" />
+            <div className="flex items-center p-5 bg-gray-50 rounded-2xl opacity-60">
+              <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mr-4">
+                <ChartBarIcon className="h-6 w-6 text-text-muted" />
+              </div>
               <div>
-                <p className="font-medium text-gray-500">Historical Reports</p>
-                <p className="text-sm text-gray-400">View trends and historical data (Coming Soon)</p>
+                <p className="font-medium text-text-subtle">Historical Reports</p>
+                <p className="text-sm text-text-muted">View trends and historical data (Coming Soon)</p>
               </div>
             </div>
           </div>

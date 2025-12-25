@@ -155,6 +155,18 @@ export const analysisService = {
     }
   },
 
+  // Get demo usage quota
+  getUsage: async () => {
+    try {
+      const response = await api.get('/analysis/usage');
+      // Backend returns { message, data }, so we need to extract the data
+      return { ...response, data: response.data.data };
+    } catch (error) {
+      console.error('Error fetching usage:', error);
+      throw error;
+    }
+  },
+
   // Generate AI fix for specific violation
   generateAIFix: async (analysisId, violationIndex) => {
     try {

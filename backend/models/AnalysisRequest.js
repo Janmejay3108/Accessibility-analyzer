@@ -3,6 +3,19 @@ const { getFirestore } = require('../config/firebase-admin');
 // Temporary in-memory storage for development
 const inMemoryStorage = new Map();
 
+const normalizeDates = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  const fields = ['requestTimestamp', 'completedTimestamp', 'createdAt', 'updatedAt'];
+  const normalized = { ...data };
+  fields.forEach((field) => {
+    const v = normalized[field];
+    if (v && typeof v.toDate === 'function') {
+      normalized[field] = v.toDate();
+    }
+  });
+  return normalized;
+};
+
 class AnalysisRequest {
   constructor(data) {
     this.url = data.url;
@@ -69,7 +82,7 @@ class AnalysisRequest {
     try {
       // Check in-memory storage first for memory-based IDs
       if (id.startsWith('mem_') && inMemoryStorage.has(id)) {
-        return inMemoryStorage.get(id);
+        return normalizeDates(inMemoryStorage.get(id));
       }
 
       // Try Firebase
@@ -81,13 +94,13 @@ class AnalysisRequest {
           return null;
         }
 
-        return {
+        return normalizeDates({
           id: doc.id,
           ...doc.data()
-        };
+        });
       } catch (firebaseError) {
         console.warn('⚠️ Firebase unavailable for getById, checking in-memory storage');
-        return inMemoryStorage.get(id) || null;
+        return normalizeDates(inMemoryStorage.get(id)) || null;
       }
     } catch (error) {
       console.error('Error getting analysis request:', error);
@@ -159,7 +172,7 @@ class AnalysisRequest {
 
       const snapshot = await query.get();
       
-      return snapshot.docs.map(doc => ({
+      return snapshot.docs.map(doc => normalizeDates({
         id: doc.id,
         ...doc.data()
       }));
@@ -179,7 +192,7 @@ class AnalysisRequest {
         .limit(limit)
         .get();
 
-      return snapshot.docs.map(doc => ({
+      return snapshot.docs.map(doc => normalizeDates({
         id: doc.id,
         ...doc.data()
       }));
@@ -211,12 +224,17 @@ class AnalysisRequest {
         .limit(limit)
         .get();
 
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        url: doc.data().url,
-        completedTimestamp: doc.data().completedTimestamp,
-        metadata: doc.data().metadata
-      }));
+      return snapshot.docs.map(doc => {
+        const data = normalizeDates({ id: doc.id, ...doc.data() });
+        return {
+          id: data.id,
+          url: data.url,
+          status: data.status || 'completed',
+          createdAt: data.completedTimestamp || data.createdAt || null,
+          completedTimestamp: data.completedTimestamp || null,
+          metadata: data.metadata
+        };
+      });
     } catch (error) {
       console.error('Error getting recent analysis requests:', error);
       throw error;
